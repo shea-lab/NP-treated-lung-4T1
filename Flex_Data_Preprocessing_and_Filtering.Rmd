@@ -1,0 +1,539 @@
+---
+title: "Flex_Data_Preprocessing_and_Filtering"
+author: "Kate Griffin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Pipeline Notes 
+This pipeline uses per sample CellRanger outputs to process the data and prepare it for downstream analysis. First, background mRNA contamination is removed with SoupX, then qc is run using ddqc_R, doublets are removed using DoubletFinder. It is very important to run each of these within-sample only, not on a combined sample object. 
+
+Inputs: 
+  raw matrix counts per sample from CellRanger
+  filtered matrix counts per sample from CellRanger
+
+Outputs: 
+  scTransformed then merged object: sct_combined_filtered_tnbc_object.rds
+  merged, not yet scTransformed: combined_filtered_tnbc_object.rds
+  merged then scTransformed: merged_sct_filtered_tnbc_object.rds
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install libraries 
+don't re-install if they already exist
+always restart your R session after installing a package 
+```{r}
+# devtools::install_github("ayshwaryas/ddqc_R")
+# 
+# install.packages("remotes")
+# remotes::install_github("chris-mcginnis-ucsf/DoubletFinder")
+```
+
+
+# Load libraries 
+
+```{r load libraries}
+library(Seurat)
+library(SoupX)
+library(ddqcR)
+library(DoubletFinder)
+library(parallel)
+```
+
+```{r source files}
+source("~/Documents/Kate/NMMscRNAseq/remove_soup.R")
+source("~/Documents/Kate/NMMscRNAseq/find_doublets.R")
+source("~/Documents/Kate/NMMscRNAseq/run_ddqcR.R")
+```
+
+
+# Read in 10X data 
+Some meta data info:
+sample 1: PBS 2 DPI
+sample 2: NP 2 DPI
+sample 3: PBS 7 DPI
+sample 4: NP 7 DPI
+sample 5: PBS 0 DPI (uninjured control)
+
+
+** delete this when done ** 
+```{r}
+# data_dir = "/Users/kategriffin/Documents/Shea Lab/NP Mechanisms in SCI/Flex_Seq/10340-SH/10x_summary_10340-SH/"
+
+```
+
+# SoupX
+run SoupX from function file "CellRanger_SoupX_Processing.R"
+params: sample, data_dir, sample_dir
+
+```{r}
+data_dir = "/Users/lonnieshea/Documents/Kate/10577-KG/"
+sample_list = c("lung_CD45pos_NPpos", "lung_CD45pos_NPneg", "lung_CD45neg", "lung_TB", "PT_NP", "PT_ctrl")
+sample_dir_list = c("10577-KG-1/", "10577-KG-2/", "10577-KG-3/", "10577-KG-4/", "10577-KG-5/", "10577-KG-6/")
+```
+
+
+** loop over all samples ** 4/18 KG
+cannot run twice because you end up writing over the original file and it says specified 'path' already exists
+need to add if statement to remove if it exists then re-save 
+```{r run soupX}
+lung_CD45pos_NPpos <- remove_soup("lung_CD45pos_NPpos", data_dir, "10577-KG-1/")
+lung_CD45pos_NPneg <- remove_soup("lung_CD45pos_NPneg", data_dir, "10577-KG-2/")
+lung_CD45neg <- remove_soup("lung_CD45neg", data_dir, "10577-KG-3/")
+lung_TB <- remove_soup("lung_TB", data_dir, "10577-KG-4/")
+PT_NP <- remove_soup("PT_NP", data_dir, "10577-KG-5/")
+PT_ctrl <- remove_soup("PT_ctrl", data_dir, "10577-KG-6/")
+
+  
+# rm() clean out data 
+# NP2dpi <- remove_soup("NP2dpi", data_dir, "10340-SH-2/")
+
+# in loop format 
+# for (x in 1:5) {
+#   sample_list[x] = remove_soup(sample_list[x], data_dir, sample_dir_list[x])
+# }
+
+
+```
+
+## SoupX Script 
+Run SoupX on 10X output (from CellRanger) to remove background mRNA soup
+
+Known issue: https://github.com/constantAmateur/SoupX/issues/148
+for multiplexed (Flex) samples, the original pipeline doesn't work. 
+-> regular method: file structure is different, so it can't pull the appropriate files
+-> manual method: different number of genes between table of droplets and table of cells (tod, tod)
+workaround: following your suggestion I filtered the raw matrix to only include the probes marked as included = TRUE in cellranger's probe_set.csv output but unfortunately doesn't resolve the issue - in my case this only filtered out 419 of the 13285 gene discrepancy. As a workaround, the function works after simply filtering the raw matrix on the rownames between the raw and filtered matrices.
+
+vignette https://cran.r-project.org/web/packages/SoupX/vignettes/pbmcTutorial.html
+error discussion https://github.com/constantAmateur/SoupX/issues/45
+
+another vignette: https://cellgeni.github.io/notebooks/html/new-10kPBMC-SoupX.html
+
+```{r manually create soup channels}
+# toc = Seurat::Read10X(data.dir = paste0(data_dir, "/10340-SH-1/sample_filtered_feature_bc_matrix"))
+# tod = Seurat::Read10X(data.dir = paste0(data_dir, "/10340-SH-1/sample_raw_feature_bc_matrix"))
+# # tod = Seurat::Read10X("/Users/kategriffin/Documents/Shea Lab/NP Mechanisms in SCI/Flex_Seq/10340-SH/10340-SH-1/count/sample_raw_feature_bc_matrix")
+# 
+# good_cells <-c(toc@Dimnames[[1]])
+# tod_good <- tod[good_cells,]
+# 
+# sc = SoupChannel(tod_good, toc)
+```
+
+```{r create cluster metadata with seurat}
+# srat <- CreateSeuratObject(counts = toc)
+# srat
+# 
+# srat <- SCTransform(srat, verbose = F)
+# srat    <- RunPCA(srat, verbose = F)
+# srat    <- RunUMAP(srat, dims = 1:30, verbose = F)
+# srat    <- FindNeighbors(srat, dims = 1:30, verbose = F)
+# srat    <- FindClusters(srat, verbose = T)
+```
+
+
+```{r add metadata}
+# meta    <- srat@meta.data
+# umap    <- srat@reductions$umap@cell.embeddings
+# sc  <- setClusters(sc, setNames(meta$seurat_clusters, rownames(meta)))
+# sc  <- setDR(sc, umap)
+# head(meta)
+
+```
+
+```{r visual sanity checks}
+# library(ggplot2)
+# dd = PBMC_metaData[colnames(sc$toc), ]
+# mids = aggregate(cbind(RD1, RD2) ~ Annotation, data = dd, FUN = mean)
+# gg = ggplot(dd, aes(RD1, RD2)) + geom_point(aes(colour = Annotation), size = 0.2) + 
+#     geom_label(data = mids, aes(label = Annotation)) + ggtitle("PBMC 4k Annotation") + 
+#     guides(colour = guide_legend(override.aes = list(size = 1)))
+# plot(gg)
+
+```
+
+```{r}
+# dd$IGKC = sc$toc["IGKC", ]
+# gg = ggplot(dd, aes(RD1, RD2)) + geom_point(aes(colour = IGKC > 0))
+# plot(gg)
+```
+
+```{r auto estimate the soup}
+# sc  <- autoEstCont(sc)
+
+```
+genes with highest background expression 
+```{r high background expression genes}
+# head(sc$soupProfile[order(sc$soupProfile$est, decreasing = T), ], n = 20)
+
+```
+
+output integer matrix
+```{r}
+# adj.matrix  <- adjustCounts(sc, roundToInt = T)
+
+```
+
+output matrix of soup-corrected reads
+```{r output corrected matrix}
+# DropletUtils:::write10xCounts("./Data/soupX_pbs2dpi_filt", adj.matrix)
+
+```
+
+
+
+```{r}
+# load CellRanger output as SoupChannel
+# PBS7dpi = SoupX::load10X(dataDir = "/Users/kategriffin/Documents/Shea Lab/NP Mechanisms in SCI/Flex_Seq/10340-SH/10340-SH-1/count/")
+
+# estimate rho 
+# PBS7dpi = autoEstCont(PBS7dpi)
+
+# clean data
+# soup_out_PBS7dpi = adjustCounts(PBS7dpi)
+```
+Using function file
+
+
+
+
+# ddqcR
+run ddqcR with "filter_ddqcr" function
+params: seurat object, "sample name", data_dir, sample_dir
+
+```{r run ddqcR}
+lung_CD45pos_NPpos <- filter_ddqcr(lung_CD45pos_NPpos, "lung_CD45pos_NPpos", data_dir, "10577-KG-1/")
+lung_CD45pos_NPneg <- filter_ddqcr(lung_CD45pos_NPneg, "lung_CD45pos_NPneg", data_dir, "10577-KG-2/")
+lung_CD45neg <- filter_ddqcr(lung_CD45neg, "lung_CD45neg", data_dir, "10577-KG-3/")
+lung_TB <- filter_ddqcr(lung_TB, "lung_TB", data_dir, "10577-KG-4/")
+PT_NP <- filter_ddqcr(PT_NP, "PT_NP", data_dir, "10577-KG-5/")
+PT_ctrl <- filter_ddqcr(PT_ctrl, "PT_ctrl", data_dir, "10577-KG-6/")
+
+# rm() clean out data 
+# NP2dpi <- remove_soup("NP2dpi", data_dir, "10340-SH-2/")
+
+# in loop format 
+# for (x in 1:5) {
+#   sample_list[x] = remove_soup(sample_list[x], data_dir, sample_dir_list[x])
+# }
+
+
+```
+
+
+
+Run ddqcR package on samples to clean up cells that do not pass thresholds. 
+Tutorial: https://htmlpreview.github.io/?https://github.com/ayshwaryas/ddqc_R/blob/master/vignette/tutorial.nb.html
+
+ddqcR does adaptive quality control by clustering cells and picking a separate threshold for each cluster. It is described down below:
+
+Initial Qualtity Control (QC) is performed, when obvious low-quality cells are removed. By default those are cells with n_genes < 100 and percent_mito > 80.
+The cells are clustered with the clustering resolution 1.3 (default)
+Then thesholds are picked for each cluster. By default the following metrics are considered:
+Number of counts/UMIs: keep cells that have n_counts greater than median - 2 Median Absolute Deviations (MAD)
+Number of genes: keep cells that have n_genes greater than median - 2 MADs
+Percent of mitochondrial transctipts: keep cells that have percent_mito less than median + 2 MADs
+In order to prevent the removal of healthy cells in clusters with high median n_genes and low percent_mito there are additional bounds for those thresholds:
+Cluster-level threshold for n_genes can’t be greater than 200 (default). If it is greater, it will be set to 200.
+Cluster-level threshold for percent_mito can’t be lower than 10 (default). If it is lower, it will be set to 10
+To perform ddqc on a dataset, we first need to run initialQC function to remove obvious bad quality cells
+```{r}
+# data <- initialQC(data)
+
+# df.qc <- ddqc.metrics(data)
+
+```
+
+
+There are two boxplots provided for exploratory data analysis:
+
+log2(n_genes) by cluster: shows log2 of number of genes for each cluster in the initial clustering. Red line at 200 genes (7.64 in log2 scale) represents the most common fixed threshold cutoff for n_genes.
+percent_mito by cluster: shows percent_mito for each cluster in the initial clustering. Red line at 10% represents the most common fixed threshold cutoff for percent_mito.
+The function will return a dataframe containing the following info for each cell:
+
+metric: QC metric number
+cluster_labels: cluster from initial clustering performed by ddqc
+metric.lower.co and metric.upper.co: lower and upper cuttofs for each metric on which ddqc was performed. If ddqc was not performed for upper or lower end of this metric this field will be None
+metric.passed.qc: whether the cell passed qc for a given metric This information is useful if you want to understand based on which metric the cell was filtered out.
+```{r}
+# df.qc
+
+```
+
+Filter out cells that did not pass QC
+```{r}
+# data <- filterData(data, df.qc)
+# data
+```
+
+Save post-QC data 
+```{r}
+# saveRDS(data, file = paste0("./Data/ddqcR_filt_", sample_list[1]), ".rds")
+
+```
+
+
+# Run Doublet Finder on Samples 
+run ddqcR with "filter_ddqcr" function
+params: seu_object, "sample name", data_dir, sample_dir
+```{r}
+# PBS2dpi = find_doublets(PBS2dpi,"PBS2dpi", data_dir, sample_dir_list[1])
+# NP2dpi = find_doublets(NP2dpi,"NP2dpi", data_dir, sample_dir_list[2])
+# PBS7dpi = find_doublets(PBS7dpi,"PBS7dpi", data_dir, sample_dir_list[3])
+# NP7dpi = find_doublets(NP7dpi,"NP7dpi", data_dir, sample_dir_list[4])
+# ctrl = find_doublets(ctrl,"ctrl", data_dir, sample_dir_list[5])
+
+lung_CD45pos_NPpos <- find_doublets(lung_CD45pos_NPpos, "lung_CD45pos_NPpos", data_dir, "10577-KG-1/")
+lung_CD45pos_NPneg <- find_doublets(lung_CD45pos_NPneg, "lung_CD45pos_NPneg", data_dir, "10577-KG-2/")
+lung_CD45neg <- find_doublets(lung_CD45neg, "lung_CD45neg", data_dir, "10577-KG-3/")
+lung_TB <- find_doublets(lung_TB, "lung_TB", data_dir, "10577-KG-4/")
+PT_NP <- find_doublets(PT_NP, "PT_NP", data_dir, "10577-KG-5/")
+PT_ctrl <- find_doublets(PT_ctrl, "PT_ctrl", data_dir, "10577-KG-6/")
+
+```
+
+## DoubletFinder Code 
+```{r pre-process seurat object }
+# # Pre-process seurat object with standard seurat workflow
+# mouse.sample <- NormalizeData(mouse.filtered)
+# mouse.sample <- FindVariableFeatures(mouse.sample)
+# mouse.sample <- ScaleData(mouse.sample)
+# mouse.sample <- RunPCA(mouse.sample, nfeatures.print = 10)
+# 
+# # Find significant PCs
+# stdv <- mouse.sample[["pca"]]@stdev
+# sum.stdv <- sum(mouse.sample[["pca"]]@stdev)
+# percent.stdv <- (stdv / sum.stdv) * 100
+# cumulative <- cumsum(percent.stdv)
+# co1 <- which(cumulative > 90 & percent.stdv < 5)[1]
+# co2 <- sort(which((percent.stdv[1:length(percent.stdv) - 1] - 
+#                      percent.stdv[2:length(percent.stdv)]) > 0.1), 
+#             decreasing = T)[1] + 1
+# min.pc <- min(co1, co2)
+# min.pc
+# 
+# # finish pre-processing
+# mouse.sample <- RunUMAP(mouse.sample, dims = 1:min.pc)
+# mouse.sample <- FindNeighbors(object = mouse.sample, dims = 1:min.pc)              
+# mouse.sample <- FindClusters(object = mouse.sample, resolution = 0.1)
+```
+
+```{r}
+# # pK identification (no ground-truth)
+# sweep.list <- paramSweep(mouse.sample, PCs = 1:min.pc, num.cores = detectCores() - 1)
+# sweep.stats <- summarizeSweep(sweep.list)
+# bcmvn <- find.pK(sweep.stats)
+# 
+# # Optimal pK is the max of the bomodality coefficent (BCmvn) distribution
+# bcmvn.max <- bcmvn[which.max(bcmvn$BCmetric),]
+# optimal.pk <- bcmvn.max$pK
+# optimal.pk <- as.numeric(levels(optimal.pk))[optimal.pk]
+```
+
+```{r}
+# ## Homotypic doublet proportion estimate
+# annotations <- mouse.sample@meta.data$seurat_clusters
+# homotypic.prop <- modelHomotypic(annotations) 
+# nExp.poi <- round(optimal.pk * nrow(mouse.sample@meta.data)) ## Assuming 7.5% doublet formation rate - tailor for your dataset
+# nExp.poi.adj <- round(nExp.poi * (1 - homotypic.prop))
+```
+
+```{r}
+# # run DoubletFinder
+# mouse.sample <- doubletFinder(seu = mouse.sample, 
+#                                  PCs = 1:min.pc, 
+#                                  pK = optimal.pk,
+#                                  nExp = nExp.poi.adj)
+# metadata <- mouse.sample@meta.data
+# colnames(metadata)[grep("DF.classification", colnames(metadata))] <- "doublet_finder"
+# mouse.sample@meta.data <- metadata 
+```
+
+```{r}
+# # subset and save
+# mouse.singlets <- subset(mouse.sample, doublet_finder == "Singlet")
+# remove(sweep.stats, sweep.list, mouse.sample, mouse.filtered, metadata, bcmvn.max, bcmvn, data)
+
+```
+
+# Add Identifying Metadata
+
+```{r add metadata to object}
+lung_CD45pos_NPpos@meta.data$sample <- "lung.cd45pos.NPpos" # rename sample name
+lung_CD45pos_NPneg@meta.data$sample <- "lung.cd45pos.NPneg"
+
+lung_CD45neg@meta.data$sample <- "lung.cd45neg.NPneg"
+lung_TB@meta.data$sample <- "lung.cd45mix.NPneg"
+
+PT_NP@meta.data$sample <- "pt.NPpos"
+PT_ctrl@meta.data$sample <- "pt.NPneg"
+```
+
+```{r add metadata to object}
+# shortname
+lung_np@meta.data$shortname <- "lung_np" # rename sample name
+lung_imm@meta.data$shortname <- "lung_imm"
+
+lung_stro@meta.data$shortname <- "lung_stro"
+lung_tb@meta.data$shortname <- "lung_tb"
+
+pt_np@meta.data$shortname <- "pt_np"
+pt_ctrl@meta.data$shortname <- "pt_ctrl"
+```
+
+
+```{r add metadata to object}
+# CD45 pos/neg
+lung_np@meta.data$cd45 <- "pos" # rename sample name
+lung_imm@meta.data$cd45 <- "pos"
+
+lung_stro@meta.data$cd45 <- "neg"
+lung_tb@meta.data$cd45 <- "neg"
+
+pt_np@meta.data$cd45 <- "neg"
+pt_ctrl@meta.data$cd45 <- "neg"
+```
+
+
+```{r add metadata to object}
+# NP treat pos/neg 
+lung_np@meta.data$nptreated <- "treated" # rename sample name
+lung_imm@meta.data$nptreated <- "treated"
+
+lung_stro@meta.data$nptreated <- "treated"
+lung_tb@meta.data$nptreated <- "untreated"
+
+pt_np@meta.data$nptreated <- "treated"
+pt_ctrl@meta.data$nptreated <- "untreated"
+```
+
+
+```{r add metadata to object}
+# NP sorted
+lung_np@meta.data$nptreated <- "NP_pos_cells" # rename sample name
+lung_imm@meta.data$nptreated <- "NP_neg_cells"
+
+lung_stro@meta.data$nptreated <- "NP_neg_cells"
+lung_tb@meta.data$nptreated <- "untreated"
+
+pt_np@meta.data$nptreated <- "treated"
+pt_ctrl@meta.data$nptreated <- "untreated"
+```
+
+
+# Save Each Post-Processing Sample
+```{r}
+saveRDS(lung_np, file = "./Data/filtered_lung_cd45pos_NPpos_object.rds")
+saveRDS(lung_imm, file = "./Data/filtered_lung_cd45pos_NPneg_object.rds")
+
+saveRDS(lung_stro, file = "./Data/filtered_lung_cd45neg_object.rds")
+saveRDS(lung_tb, file = "./Data/filtered_lung_TB_object.rds")
+
+
+saveRDS(pt_np, file = "./Data/filtered_PT_NP_object.rds")
+saveRDS(pt_ctrl, file = "./Data/filtered_PT_ctrl_object.rds")
+```
+
+
+# scTransform THEN merge  
+scTransform vignette: https://satijalab.org/seurat/articles/sctransform_vignette.html
+install glmGamPoi before using, significantly improves speed
+BiocManager::install("glmGamPoi")
+
+```{r}
+lung_np <- readRDS(file = "./Data/filtered_lung_cd45pos_NPpos_object.rds")
+lung_imm <- readRDS(file = "./Data/filtered_lung_cd45pos_NPneg_object.rds")
+
+lung_stro <- readRDS(file = "./Data/filtered_lung_cd45neg_object.rds")
+lung_tb <- readRDS(file = "./Data/filtered_lung_TB_object.rds")
+
+pt_np <- readRDS(file = "./Data/filtered_PT_ctrl_object.rds")
+pt_ctrl <- readRDS(file = "./Data/filtered_PT_NP_object.rds")
+```
+
+```{r merge without scTransform}
+tnbc = merge(x = lung_tb, y = list(lung_np, lung_imm, lung_stro, pt_np, pt_ctrl), 
+              merge.data = T, 
+              na.rm = T)
+
+saveRDS(tnbc, file = "./Data/combined_filtered_tnbc_object.rds")
+
+
+```
+
+
+## scTRansform
+```{r run scTransform}
+sct_lung_np <- SCTransform(lung_np, vars.to.regress = "percent.mt", verbose=F)
+sct_lung_imm <- SCTransform(lung_imm, vars.to.regress = "percent.mt", verbose=F)
+
+sct_lung_stro <- SCTransform(lung_stro, vars.to.regress = "percent.mt", verbose=F)
+sct_lung_tb <- SCTransform(lung_tb, vars.to.regress = "percent.mt", verbose=F)
+
+sct_pt_np <- SCTransform(pt_np, vars.to.regress = "percent.mt", verbose=F)
+sct_pt_ctrl <- SCTransform(pt_ctrl, vars.to.regress = "percent.mt", verbose=F)
+
+rm(pt_ctrl, pt_np, lung_tb, lung_stro, lung_imm, lung_np)
+```
+
+
+
+
+```{r}
+sct_lung_np@meta.data$sample <- "lung.cd45pos.NPpos" # rename sample name
+sct_lung_imm@meta.data$sample <- "lung.cd45pos.NPneg"
+
+sct_lung_stro@meta.data$sample <- "lung.cd45neg.NPneg"
+sct_lung_tb@meta.data$sample <- "lung.cd45mix.NPneg"
+
+sct_pt_np@meta.data$sample <- "pt.NPpos"
+sct_pt_ctrl@meta.data$sample <- "pt.NPneg"
+
+```
+
+
+## merge
+merge tutorial: https://satijalab.org/seurat/archive/v4.3/merge
+
+Note: combined_filtered_spine_object.rds is merged pre-scTransform and integration
+sct_combined_filtered_spine_object.rds is scTransform, THEN merged 
+```{r merge}
+# adding merge.data = TRUE merges the data slots instead of just the counts (which requires renormlization), recommended if same normalization approach was applied
+# na.rm = T: only preserve residuals that are present in all SCTAssays being merged. otherwise, missing residuals will be populated with NAs
+
+
+sct_tnbc = merge(x = sct_lung_tb, y = list(sct_lung_np, sct_lung_imm, sct_lung_stro, sct_pt_np, sct_pt_ctrl), 
+              merge.data = T, 
+              na.rm = T)
+# rm(sct_ctrl, sct_PBS2dpi, sct_NP2dpi, sct_PBS7dpi, sct_NP7dpi)
+
+
+
+saveRDS(sct_tnbc, file = "./Data/sct_combined_filtered_tnbc_object.rds")
+
+
+```
+
+
+## scTransform the Merged Data
+scTransform the merged data 
+scTransform vignette: https://satijalab.org/seurat/articles/sctransform_vignette.html
+install glmGamPoi before using, significantly improves speed
+BiocManager::install("glmGamPoi")
+
+
+
+```{r load merged data}
+data <- readRDS("./Data/combined_filtered_tnbc_object.rds")
+```
+
+```{r run sct on merged data and save}
+data <- SCTransform(data, vars.to.regress = "percent.mt", verbose=F)
+saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/merged_sct_filtered_tnbc_object.rds")
+```
+
+
+

@@ -1,0 +1,1582 @@
+---
+title: "Label_Clusters"
+output: html_document:
+  fig_crop: no
+
+date: "2024-05-01"
+---
+# Setup 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(Seurat)
+library(dplyr)
+library(readr)
+library(tidyverse)
+
+# Load libraries
+library(SingleCellExperiment)
+library(Matrix)
+library(scales)
+library(cowplot)
+library(RCurl)
+library(AnnotationDbi)
+library(org.Mm.eg.db)
+library(clusterProfiler)
+```
+
+# Load Data
+```{r}
+# data = readRDS("~/Documents/Kate/NMMscRNAseq/Data/integrated_merged_sct_filtered_tnbc_object.rds")
+
+data = readRDS("~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+
+# visualize to make sure it's properly loaded
+```
+
+```{r}
+# update labels 
+Idents(data) <- "shortname"
+data <- RenameIdents(data, 'lung_np' = "NP+", 'lung_imm' = "NP-", 'lung_tb' = "Untreated", 'lung_stro' = "Stromal")
+data@meta.data$shortname <- data@active.ident 
+
+data$shortname <- factor(data$shortname, levels = c("Untreated","NP+", "NP-", "Stromal"))
+# data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","AT2",    "Endothelial",  "Fibroblast", "Th1 T Cell", "T Central Mem", "HSP+ T Cell", "4T1"))
+
+data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
+
+data@meta.data$identity <- paste0(data$shortname, "_", data$phenotype)
+
+
+```
+
+"Neutrophil"="#FB9A98",
+             "Inflammatory Neutrophil"="#E3201D",
+            "IFN Stimulated Neutrophil"="#911441",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Macrophage"="#1C9E77" , 
+            "recMac"="#B1DF8A",
+            "alvMac"="#4CAF4B", 
+            "moDC"="#233075" ,
+            "AT2"="#377EB8",
+            "HSP+ T Cell"="#54B0E3", 
+            "Endothelial"="#00CDD1",
+            "T Central Mem"="#F681C0" ,
+            "Th1 T Cell"="#BB9DCC" ,
+            "Basophils"= "#984EA3",
+            "4T1"="#E72A8A",
+            "Fibroblast"="#A65628" 
+
+ [1] "Neutrophil"                "IFN Stimulated Neutrophil" "Inflammatory Neutrophil"   "Macrophage"                "recMac"                   
+ [6] "alvMac"                    "moDC"                      "Basophils"                 "B Cell"                    
+ "Th1 T Cell"               
+[11] "T Central Mem"             "HSP+ T Cell"               "NK Cell"                   "Endothelial"               "Fibroblast"               
+[16] "AT2"                       "4T1"   
+
+
+# Visualize
+```{r}
+colors <- c("Neutrophil"="#FB9A98",
+             "Inflammatory Neutrophil"="#E26261",
+            "IFN Stimulated Neutrophil"="#B2496F",
+            "Basophils"= "#DC4405",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Macrophage"="#1C9E77" , 
+            "recMac"="#B1DF8A",
+            "alvMac"="#4CAF4B", 
+            "moDC"= "#5D6DC1",
+            "HSP+ T Cell"= "#377EB8",
+            "T Central Mem"=  "#54B0E3",
+            "Th1 T Cell"="#9baee4",
+            "AT2"="#984EA3",
+            "Endothelial"="#BB9DCC" ,
+            "4T1"= "#F681C0",# "#E72A8A",
+            "Fibroblast"= "#EA9FFF")
+
+# genentech palette 
+colors <- c("Neutrophil"="#DC4405",
+             "Inflammatory Neutrophil"="#C8102E",
+            "IFN Stimulated Neutrophil"="#862633",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Macrophage"="#008c15" , 
+            "recMac"="#74aa50",
+            "alvMac"="#c3d393", 
+            "moDC"= "#005844",
+            "AT2"="#485cc7",
+            "Endothelial"="#8dc8e0",
+            "HSP+ T Cell"= "#8c4799",
+            "T Central Mem"= "#dea8dd", 
+            "Th1 T Cell"="#ba9cc5" ,
+            "Basophils"= "#eaf3d9",
+            "4T1"= "#af1685",# "#E72A8A",
+            "Fibroblast"="#9baee4" )
+
+colors <- c("Neutrophil"="#FB9A98",
+             "Inflammatory Neutrophil"="#E3201D",
+            "IFN Stimulated Neutrophil"="#911441",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Macrophage"="#1C9E77" , 
+            "recMac"="#B1DF8A",
+            "alvMac"="#4CAF4B", 
+            "moDC"="#233075" ,
+            "AT2"="#377EB8",
+            "Endothelial"="#00CDD1",
+            "HSP+ T Cell"= "#984EA3",
+            "T Central Mem"= "#EA9FFF", 
+            "Th1 T Cell"="#BB9DCC" ,
+            "Basophils"= "#54B0E3",
+            "4T1"= "#F681C0",# "#E72A8A",
+            "Fibroblast"="#A65628" )
+
+# colors <- c("Neutrophil"="#FB9A98",
+#             "Inflammatory Neutrophil"="#E3201D",
+#             "IFN Stimulated Neutrophil"="#911441",
+#             
+#             "B Cell"= "#E2BE02", 
+#             "Endothelial"="#00CDD1",
+#             
+#             "Macrophage"="#377EB8",
+#             "recMac"="#B1DF8A",
+#             "alvMac"="#4CAF4B", 
+#             "moDC"="#233075" ,
+#             
+#             "NK Cell"="#F29404" ,
+#             "T Central Mem"="#F681C0" ,
+#             "Th1 T Cell"="#BB9DCC" ,
+#             "HSP+ T Cell"="#54B0E3", 
+#             
+#             "Fibroblast"="#A65628", 
+#            
+# 
+#             "Basophils"= "#984EA3",
+#             "AT2"="#1C9E77" , 
+#             "4T1"="#E72A8A")
+```
+
+
+```{r}
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+DimPlot(data, label = T)
+Idents(data) <- "phenotype"
+DimPlot(data, label = T, cols = colors)
+```
+
+
+# Create lung subset object 
+```{r}
+Idents(data) <- data@meta.data$shortname
+lung <- subset(data, idents = c("lung_imm", "lung_tb", "lung_np", "lung_stro"))
+```
+
+```{r}
+data <- lung
+rm(lung)
+```
+
+
+# re-run SCT and cluster ID with only lung
+## SCT
+```{r}
+data <- SCTransform(data)
+data <- RunPCA(data)
+data <- FindNeighbors(data, dims = 1:30)
+data <- FindClusters(data)
+data <- RunUMAP(data, dims = 1:30)
+DimPlot(data, reduction = "umap", group.by = c("sample", "seurat_clusters"))
+```
+
+## Integrate
+```{r}
+# integrate datasets
+data <- IntegrateLayers(object = data, method = CCAIntegration, normalization.method = "SCT", verbose = F)
+data <- FindNeighbors(data, reduction = "integrated.dr", dims = 1:30)
+data <- FindClusters(data, resolution = 0.6)
+```
+
+```{r}
+data <- RunUMAP(data, dims = 1:30, reduction = "integrated.dr")
+DimPlot(data, reduction = "umap", group.by = c("shortname", "SCT_snn_res.0.6"))
+```
+
+```{r}
+DimPlot(data, split.by = "shortname")
+```
+
+```{r}
+saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_integrated_merged_sct_filtered_object.rds")
+```
+
+
+# Visualize Immune vs Stromal Populations
+```{r}
+FeaturePlot(data, features = c("Ptprc", "Col1a1", "Cd44"))
+```
+# Optimize Resolution Parameter
+```{r}
+data <- FindClusters(data, res = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4))
+```
+Look at different resolutions 
+```{r}
+# explore resolutions 
+Idents(data) <- "SCT_snn_res.0.8"
+
+DimPlot(data, reduction = "umap", label = T, label.size = 6)
+```
+```{r}
+Idents(data) <- "SCT_snn_res.0.6"
+
+DimPlot(data, reduction = "umap", label = T, label.size = 6)
+```
+
+
+```{r}
+Idents(data) <- "SCT_snn_res.0.4"
+
+DimPlot(data, reduction = "umap", label = T, label.size = 6)
+```
+
+```{r}
+Idents(data) <- "SCT_snn_res.1.4"
+
+DimPlot(data, reduction = "umap", label = T, label.size = 6)
+```
+
+## Graph res selection
+```{r}
+DimPlot(data, reduction = "umap", group.by = c("shortname", "SCT_snn_res.0.8"))
+```
+
+
+# Look at Clusters
+Count of cells in each cluster per condition
+```{r}
+Idents(data) <- "SCT_snn_res.0.6"
+n_cells <- FetchData(data, vars = c("ident", "shortname")) %>% 
+  dplyr::count(ident, shortname) %>% 
+  tidyr::spread(ident, n)
+
+n_cells
+```
+
+## Look through gene names
+```{r}
+gene_list <- Features(data)
+gene_list <- str_split(gene_list, "/t")
+```
+
+## Cell cycle phase
+tutorial: https://hbctraining.github.io/scRNA-seq_online/lessons/06_SC_SCT_normalization.html
+** come back to this
+```{r}
+# DimPlot(data, label = T, split.by = "Phase")
+```
+
+# Clustering Analysis
+tutorial: https://hbctraining.github.io/scRNA-seq/lessons/08_SC_clustering_quality_control.html
+cell type markers: https://docs.google.com/spreadsheets/d/1WksC1b-KfHl0X1AVh4jKY-fs6LN3IR42KIqhN_kpta0/edit#gid=0
+
+Reference paper, SCI single cell popultions: https://doi.org/10.1084/jem.20210040
+  Milich et al
+
+Cell types we expect: 
+general immune cells 
+specialized neural cells (microglia, astrocytes, glia, neurons)
+stromal cells 
+
+```{r}
+# Select the RNA counts slot to be the default assay
+DefaultAssay(data) <- "RNA"
+
+data <- JoinLayers(data)
+
+# Normalize RNA data for visualization purposes
+data <- NormalizeData(data, verbose = FALSE)
+```
+
+# Immune Cell ID
+
+```{r}
+DimPlot(data, label = T, split.by = "shortname")
+```
+
+From OneNote 'Gene Marker List' Spine: 
+Cd3e, Cd4, Cd8a (T Cells)
+Ncr1, Klrb1c, Klre1 (NK Cells)
+Cd79a, Cd19, Ms4a1, Iglc3 (B Cells)
+Ighm (Plasma) 
+Itgam (Cd11b, many cells)
+Cd33 (myeloid)
+Ly6c2, Cd14, Ccr2 (Monocytes)
+Smox, Apoe, Adgre1 (Macrophages)
+Tmem119, Trem2, P2ry12 (Microglia)
+Camp, Retnlg, Ly6g (Neutrophils)
+Cd86, Siglech, Klk1 (DCs)
+Hcrtr2, Fcer1a, Il3ra (Basophils)
+Ccr3, Siglecf, Cd44 (Eosinophils) 
+
+```{r immune_id, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Cd3e", "Cd4", "Cd8a",
+                            "Ncr1", "Klrb1c", "Klre1",
+                            "Cd79a", "Cd19", "Ms4a1", "Iglc3",
+                            "Ighm",
+                            "Itgam",
+                            "Cd33",
+                            "Ly6c2", "Cd14", "Ccr2",
+                            "Smox", "Apoe", "Adgre1",
+                            "Tmem119", "Trem2", "P2ry12",
+                            "Camp", "Retnlg", "Ly6g",
+                            "Cd86", "Siglech", "Klk1",
+                            "Hcrtr2", "Fcer1a", "Il3ra",
+                            "Ccr3", "Siglecf", "Cd44")) + RotatedAxis()
+```
+
+check feature plot, look for myeloid cluster (Cd33+), immune (Cd45+), stromal (Dcn, Serping1), 
+epithelial (Qsox1, Mfge3, Epcam, Cdh1), mesenchyman (Vim), Endothelial (Cav1, Cd34, Cd93), lymphatic endothelial (Lyve1, Pdpn),
+Fibroblast (Col1a1, Col3a1, Col5a1, Cald1), Eosinophil (Ccr3, Adgre1, Itgam/CD11b, Siglecf, Pgp1), Basophil (Hcrtr2, Fcer1a, Il3ra),
+DC (Cd86), 
+Epithelial (Cdh1, )
+```{r type_id, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c( "Cd33", "Ptprc", 
+                                  "Dcn", "Serping1", 
+                                  "Osox1", "Mfge3", "Krt5", "Epcam", "Cdh1", 
+                                  "Vim", 
+                                  "Cav1", "Cd34", "Cd93", "Pecam1", "Icam1", 
+                                  "Lyve1", "Pdpn",
+                                  "Col1a1", "Col3a1", "Col5a1", "Cald1", 
+                                  "Ccr3", "Itgam", "Siglecf", "Pgp1", 
+                                  "Hcrtr2", "Fcer1a", "Il3ra", 
+                                  "Cd86")) + RotatedAxis()
+```
+Sophia's Markers 
+paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9643644/
+Single-cell RNA seq identifies anti-cancer immune phenotypes 
+from the supplmental file 
+Emr1 = Adgre1
+Ly6c2 not found- monocyte marker, replaced with Cd14
+
+Mrc1 = Cd206 ? 
+Ptprc=cd45, immune; itgam = cd11b, myeloid 
+Cd3e = T cells; S100a4 = stromal; Fn1 = HSCs; 
+Sftpc = pneumocytes; Limch1 = pneumocytes
+Klrb1c = NK; Ly6g / REtnlg = neutrophils
+Ly6c2 - monocytes
+Emr1 (adgre1). cd68 = macrophages 
+Cd34 = HSCs (hematopoietic stem cells)
+Elane = granulocytes
+Pecam1 = Endothelial; Siglech = DCs
+Ms4a1 = B cells 
+alv mac = Mrc1, Ear2 (Nr2f6)
+
+```{r type_id_sophia, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Ptprc", "Itgam",
+                          "Cd3e", "S100a4", "Fn1", "Sftpc", 
+                            "Limch1", "Klrb1c", "Ly6g",
+                            "Retnlg", "Cd14", "Cd68", 
+                            "Adgre1", "Cd34", "Elane", 
+                           "Pecam1", "Siglech", "Ms4a1", "Mrc1", "Nr2f6"
+  
+)) + RotatedAxis()
+```
+
+
+## transcription factors 
+Lineage Markers
+https://doi.org/10.1186/s13059-018-1416-2
+hematopoietic cells, where TFs such as Gata1, Tal1, Runx1, and Klf1 were specifically active; neuronal cells, which specifically activate TFs such as Sox2, Sox21, and Pax6; epithelial cells, exhibiting high expression of genes that are crucial for epithelial cells, such as Epcam, Cldn6, Cldn7, and Cdh1; and mesoderm-derived cells, expressing marker genes including Col3a1, Pcolce, and Cdh11. 
+
+```{r type_id_TF, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Gata1", "Tal1", "Runx1", "Klf1", 
+                            "Sox2", "Sox21", "Pax6",
+                            "Epcam", "Cldn6", "Cdh1", 
+                            "Col3a1", "Pcolce", "Cdh11"
+  
+)) + RotatedAxis()
+```
+
+
+# DCs Subpopulations
+https://onlinelibrary.wiley.com/doi/pdf/10.1002/eji.202149548
+all: CD11c [Itgax], MHCII [H2-Ab1]
+cDCs CD26 [Dpp4], FLT3, Zbtb46
+cDC1: CD8, CD24 [Cd24a], Cd36, Cd103 [Itgae], Cd205 [Ly75], Clec9a, Langerin [CD207], Necl2 [Cadm1], Xcr1
+cDC2a: Itgam, Cd209a, Sirpa, Dcir2 [Clec4a4], Cd4, Cd103 [Itgae], Esam, F4/80 [Adgre1]
+cDC2b: Itgam, Cd209a, Sirpa, Dcir2; Cd14, Ccr2, Cd64, Cx3cr1, Ly6c, Clec10a, Clec12a, Mgl2, F4/80
+Inf-cDC2: Itgam, Sirpa, Ccr2, Cd64, DC-sign [Cd209a], Ly6C, Mar-1
+
+MoDC: Itgam, CD209a, Sirpa, Cd14, Ccr2, Cd64 [Fcgr1], Cx3cr1, Ly6C, Cd16/32 [Fcgr3], Cd88 [C5ar1], Cd115 [Csf1r], Cd206 [Mrc1], F4/80, Ly6C, Mar-1, MerTK
+
+```{r cDC1}
+DotPlot(data, features = c("Itgax", "H2-Ab1", "Dpp4", "Flt3", "Zbtb46", "Cd8a", "Cd24a", "Cd36", "Itgae", "Ly75","Clec9a", "Cd207", "Cadm1", "Xcr1")) + RotatedAxis()
+```
+
+```{r cDC2a, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default' }
+DotPlot(data, features = c("Itgax", "H2-Ab1", "Dpp4", "Flt3", "Zbtb46", "Itgam", "Cd209a", "Sirpa", "Clec4a4", "Cd4","Itgae", "Esam", "Adgre1")) + RotatedAxis()
+```
+
+```{r cDC2b}
+DotPlot(data, features = c("Itgax", "H2-Ab1", "Dpp4", "Flt3", "Zbtb46", "Itgam", "Cd209a", "Sirpa", "Clec4a4", "Cd14","Fcgr1", "Cx3cr1", "Ly6c2", "Clec10a", "Clec12a", "Mgl2", "Adgre1")) + RotatedAxis()
+
+```
+
+```{r inf-cDC2}
+DotPlot(data, features = c("Itgax", "H2-Ab1", "Dpp4", "Flt3", "Zbtb46", "Itgam", "Cd209a", "Sirpa", "Clec4a4", "Ccr2","Fcgr1",  "Ly6c2", "Mar1")) + RotatedAxis()
+```
+
+```{r moDC}
+DotPlot(data, features = c("Itgax", "H2-Ab1", "Dpp4", "Flt3", "Zbtb46", "Itgam", "Cd209a", "Sirpa", "Clec4a4", "Cd14", "Ccr2","Fcgr1", "Cx3cr1","Fcgr3", "Ly6c1", "Mar1", "C5ar1", "Csf1r", "Mrc1", "Adgre1", "Mertk")) + RotatedAxis()
+```
+
+
+```{r pDC, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default' }
+DotPlot(data, features = c("Il3ra", "Gzmb", "Serpinf1", "Itm2c")) + RotatedAxis()
+```
+
+
+# T Cell Subsets
+Th1: Ccr5, Cxcr3, Tbet [Tbx21], Ifng, Tnfa, 
+Th2: Ccr4, Gata3, Il4, Il5, Il10
+Th17: Ccr6, Klrb1, Rorc, Irf4, Il17a, Il17f, Il22
+Tfh: Cxcr5, Pd1, Icos, Bcl6, Il21
+Treg: Cd25, Cd127, Foxp3
+Th22: Rorgt, Il22
+```{r}
+DotPlot(data, features = c("Cd4", "Ccr5", "Cxcr3", "Tbx21", "Ifng", "Tnf", 
+                           "Ccr4", "Gata3", "Il4", "Il5","Il10", 
+                           "Ccr6", "Klrb1", "Rorc", "Irf4", "Il17a", "Il17f", "Il22",
+                           "Cxcr5", "Pdcd1", "Icos", "Bcl6", "Il21", 
+                           "Cd25", "Cd127", "Foxp3", 
+                           "Rorgt")) + RotatedAxis()
+```
+
+Teff: high IFNg, lower TNFa, Gzmb, CD44, Klrg1, CD45RA+ [Ptprc], Ccr7-
+T central mem: CD45RA- [Ptprc], Ccr7+, CD27+
+T eff mem: CD45RA-, Ccr7-, CD27+
+T exhausted: upreg PD-1, CTLA-4, CD45RA, Ccr7, CD27, downreg CD44, Ly6C, Klrg1
+```{r}
+DotPlot(data, features = c("Cd8a", "Ifng", "Gzmb", "Cd44", "Klrg1",  
+                           "Ccr7", "Cd27", 
+                           "Pdcd1", "Ctla4")) + RotatedAxis()
+```
+
+
+
+# Milich 2021 / PanglaoDB
+```{r set clusters}
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+```
+
+***6/4 try looking at DCs in lung only samples, and in NP+ only sample. Maybe other cell types are blowing out expression
+CD11c = Itgax 
+```{r DCs, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Itgax", "Cd86", "Siglech", "Klk1", "Cd40", "Cd80")) + RotatedAxis()
+
+```
+
+```{r DCs, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Itgax", "Cd83", "Lamp3", "Cd86",  
+                           "Axl", "Dab2", "Fcer1a", "Il6", 
+                           "Cd80", "Batf3", "Siglecf")) + RotatedAxis()
+
+```
+
+
+```{r neutrophils, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Retnlg","Ly6g","Camp","S100a9", "Mmp9",  "Cd177", "Ltf")) + RotatedAxis()
+```
+
+monocytes PanglaoDB
+Cd14, Lyz, Cfp, Ccr2, Csf3r, Cd7, Tet2, Cd40, Dysf, Cmklr1, 
+```{r monocytes, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+# panglaoDB
+DotPlot(data, features = c("Cd14","Lyz", "Ccr2", "F10", "Plac8", "Thbs1")) + RotatedAxis()
+
+# Biology of macrophages in the lung
+DotPlot(data, features = c("Ly6c2","C5ar1", "Ccr2", "Fn1", "Vcan", "Csf1r", "Il1b", "Mafb")) + RotatedAxis()
+
+```
+
+```{r macrophages, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Adgre1", "Cd68", "Itgam", "Smox", "Apoe")) + RotatedAxis()
+```
+
+
+```{r dividing myeloid, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Top2a", "Mki67", "Cdk1", "Ccnb2")) + RotatedAxis()
+```
+
+```{r fibroblast, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Col1a1", "Col6a1", "Dcn", "Lum", "Postn")) + RotatedAxis()
+```
+
+```{r endothelial, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Pecam1", "Kdr", "Flt1")) + RotatedAxis()
+```
+
+# McGinnis Major Types
+Igkc, Cd79a, Ly6d, Ebf1, Ighm, Cd79b, Iglc2, Ighd, Ms4a1, Iglc3
+### B cell
+```{r}
+DotPlot(data, features = c("Igkc", "Cd79a", "Ly6d", "Ebf1", "Ighm", "Cd79b", "Iglc2", "Ighd", "Ms4a1", "Iglc3") ) + RotatedAxis()
+```
+### yGT/ILC
+```{r}
+DotPlot(data, features = c("Il7r", "Ramp1", "Cd3g", "Cxcr6", "Trbc1", "S100a4", "Rora", "Trbc2", "Tmem176a", "Icos") ) + RotatedAxis()
+```
+
+### CD4T
+```{r}
+DotPlot(data, features = c("Trbc2", "Il7r", "Cd3g", "Cd3d", "Lef1", "Trbc1", "Trac", "Cd3e", "Ets1", "Tmsb10" ) ) + RotatedAxis()
+```
+
+### CD8T
+```{r}
+DotPlot(data, features = c("Ccl5", "Trbc2", "Cd8b1", "Cd3g", "Cd3d", "Nkg7", "Cd3e", "Trbc1", "Tmsb10", "Trac") ) + RotatedAxis()
+```
+### Treg
+```{r}
+DotPlot(data, features = c("Ikzf2", "Trbc2", "S100a10", "Ctla4", "Ifi27l2a", "Cd3g", "Trbc1", "Tnfrsf4", "S100a4", "Cd3e" ) ) + RotatedAxis()
+```
+### IM
+```{r}
+DotPlot(data, features = c("C1qa", "Apoe", "C1qb", "C1qc", "Pf4", "Retnla", "Cd74", "H2-Aa","H2-Ab1", "Selenop") ) + RotatedAxis()
+```
+### AM
+```{r}
+DotPlot(data, features = c( "Spp1", "Chil3", "Ear2", "Lpl", "Fabp1", "Ctsd", "Ear1", "Plet1", "Abcg1", "Mrc1") ) + RotatedAxis()
+```
+### Neutrophil
+```{r}
+DotPlot(data, features = c("S100a9", "S100a8", "Retnlg", "Wfdc17", "Ifitm1", "Il1b", "BC100530", "Stfa2l1", "Hp") ) + RotatedAxis()
+```
+
+### Classical Mon
+```{r}
+DotPlot(data, features = c("Fn1", "Plac8", "Lyz2", "S100a4", "Ifitm3", "F13a1", "Ms4a6c", "Thbs1", "Ifi27l2a", "Ly6c2") ) + RotatedAxis()
+```
+### intermdiate Mon
+```{r}
+DotPlot(data, features = c("Plac8", "Ifitm3", "Gngt2", "S100a4", "Ms4a6c", "Cd74", "Apoe", "Ifi27l2a", "H2-Ab1", "Lyz2"
+                          ) ) + RotatedAxis()
+```
+### Non-Classical Mon
+```{r}
+DotPlot(data, features = c("Gngt2", "Pou2f2", "Ace", "Ifitm3", "Apoe", "Plac8", "Stap1", "Sat1", "Clec4a3", "Spn") ) + RotatedAxis()
+```
+### Macrophage
+```{r}
+DotPlot(data, features = c("Adgre1", "Cd68", "Itgam", "Smox", "Apoe", "Ace", "Adgre4", "Cd300a") ) + RotatedAxis()
+```
+
+### Macrophage vs Monocyte
+```{r}
+DotPlot(data, features = c("Adgre1", "Cd68", "Itgam", "Smox",  "Adgre4", "Cd300a", 
+                           "Gngt2", "Pou2f2", "Ace", "Ifitm3", "Apoe", "Plac8", "Stap1", "Sat1", "Clec4a3", "Spn"
+) ) + RotatedAxis()
+
+```
+
+
+### cDC1
+```{r}
+DotPlot(data, features = c("Cst3", "H2-Ab1", "H2-Aa", "Cd74", "Naaa", "Irf8", "Plbd1", "Tbc1d4", "H2-DMa", "Cd207") ) + RotatedAxis()
+```
+### cDC2
+```{r}
+DotPlot(data, features = c("H2-Ab1", "Cd74", "H2-Aa", "Cst3", "Mgl2", "Ccl17", "Tnip3", "Cd209a", "Mt1", "Tmem176a") ) + RotatedAxis()
+```
+### pDC
+```{r}
+DotPlot(data, features = c("Bst2", "Siglech", "Tcf4", "Irf8", "Ctsl", "Klk1", "Cd209d", "Atp1b1", "Rnase6", "Cox6a2" ) ) + RotatedAxis()
+```
+
+### Ccr7+ DC
+```{r}
+DotPlot(data, features = c("Ccl5", "Ccl22", "Fscn1", "Ccl17", "Basp1", "Ccr7", "Tbc1d4", "Il12b", "Rgs1", "Tmem123") ) + RotatedAxis()
+```
+### Proliferative 
+```{r}
+DotPlot(data, features = c( "Hist1h1b", "Stmn1", "Top2a", "Mki67", "Tubb5", "Pclaf", "Tuba1b", "H2afz", "Hist1h4d") ) + RotatedAxis()
+```
+
+## Lung Macrphage Subtypes: McGinnis Functional Subtypes
+Cell Type	Marker Genes
+IM Antigen:	Cd74, H2-Ab1, H2-Aa, Cd52, H2-DMb1, Ccr2, H2-DMa, Rgs1, H2-Eb1, Plbd1
+IM Mrc1:	Selenop, Pf4, Maf, Mrc1, Wwp1, Apoe, Ninj1, Stab1, Cfh, Ly6e
+IM Crip1:	Tppp3, Crip1, Vim, S100a6, S100a10, Lmna, S100a4, Emp1, Lgals3, Lsp1
+IM Proliferative:	Stmn1, H2afz, Ranbp1, Hmgb2, Anp32b, Txn1, Ran, Gapdh, Hmgn1, Nap1l1
+AM Homeostatic:	Txnip, Rsrp1, Tsc22d3, Cdc42ep3, Abcg1, Tyrobp, Rgs1, Reep5, Rgs2, Mpc2
+AM Inflammatory:	Tnf, Nfkbiz, Tnfaip3, Rasgef1b, Nlrp3, Ccrl2, Il1b, Rel, Nr4a1, Malt1
+AM Lipid:	Gpnmb, Ctsb, Lgals3, Ctsk, Ccl6, Cd36, Vat1, Ctsl, Gpr137b, Wfdc17 
+AM Allergy:	Ang5, Ang4, AY036118, Cst3, Fcer1g, Ear1, Cyba, Ear2, Lyz2, Gm42418
+AM Antigen:	H2-Aa, H2-Ab1, Cd74, H2-DMb1, Epcam, H2-DMa, Fn1, Cd52, Pilra, Osm
+AM Mt:	Mt2, Mt1, Prdx1, Ftl1, Lipa,  Hmox1, Creg1, Blvrb, Gstm1, Ctsb
+AM IFN:	Isg15, Ifih1, Peli1, Ly6e, Cybb, Samhd1, Sppl2a, Cd300lf, 1600014C10Rik, Selenow 
+AM Proliferative:	Cbx3, Dek, Hmgb2, Tubb5, Anp32b, H2afz, Ptma, Ran, Tuba1b, Nap1l1
+
+```{r IM Antigen}
+DotPlot(data, features = c("Cd74", "H2-Ab1", "H2-Aa", "Cd52", "H2-DMb1", "Ccr2", "H2-DMa", "Rgs1", "H2-Eb1", "Plbd1")) + RotatedAxis()
+```
+
+IM Mrc1+	Selenop, Pf4, Maf, Mrc1, Wwp1, Apoe, Ninj1, Stab1, Cfh, Ly6e
+```{r}
+DotPlot(data, features = c("Selenop", "Pf4", "Maf", "Mrc1", "Wwp1", "Apoe", "Ninj1", "Stab1", "Cfh", "Ly6e")) + RotatedAxis()
+
+```
+
+IM Crip1+	Tppp3, Crip1, Vim, S100a6, S100a10, Lmna, S100a4, Emp1, Lgals3, Lsp1
+```{r}
+DotPlot(data, features = c("Tppp3", 'Crip1', "Vim", "S100a6", "S100a10", "Lmna", "S100a4", "Emp1", "Lgals3", "Lsp1")) + RotatedAxis()
+```
+
+IM Proliferative	Stmn1, H2afz, Ranbp1, Hmgb2, Anp32b, Txn1, Ran, Gapdh, Hmgn1, Nap1l1
+```{r}
+DotPlot(data, features = c("Stmn1", "H2afz", "Ranbp1", "Hmgb2", "Anp32b", "Txn1", "Ran", "Gapdh", "Hmgn1", "Nap1l1")) + RotatedAxis()
+```
+
+AM Homeostatic	Txnip, Rsrp1, Tsc22d3, Cdc42ep3, Abcg1, Tyrobp, Rgs1, Reep5, Rgs2, Mpc2
+```{r}
+DotPlot(data, features = c("Txnip", "Rsrp1", "Tsc22d3", 'Cdc42ep3', "Abcg1", "Tyrobp", "Rgs1", "Reep5", "Rgs2", "Mpc2")) + RotatedAxis()
+```
+
+AM Inflammatory	Tnf, Nfkbiz, Tnfaip3, Rasgef1b, Nlrp3, Ccrl2, Il1b, Rel, Nr4a1, Malt1
+```{r}
+DotPlot(data, features = c("Tnf", "Nfkbiz", "Tnfaip3", "Rasgef1b", "Nlrp3", "Ccrl2", "Il1b", "Rel", "Nr4a1", "Malt1")) + RotatedAxis()
+```
+
+AM Lipid	Gpnmb, Ctsb, Lgals3, Ctsk, Ccl6, Cd36, Vat1, Ctsl, Gpr137b, Wfdc17 
+```{r}
+DotPlot(data, features = c("Gpnmb", "Ctsb", "Lgals3", "Ctsk", "Ccl6", "Cd36", "Vat1", "Ctsl", "Gpr137b", "Wfdc17" )) + RotatedAxis()
+```
+
+AM Allergy	Ang5, Ang4, AY036118, Cst3, Fcer1g, Ear1, Cyba, Ear2, Lyz2, Gm42418
+```{r}
+DotPlot(data, features = c("Ang5", "Ang4", "AY036118", "Cst3", "Fcer1g", "Ear1", "Cyba", "Ear2", "Lyz2", "Gm42418")) + RotatedAxis()
+```
+
+AM Antigen	H2-Aa, H2-Ab1, Cd74, H2-DMb1, Epcam, H2-DMa, Fn1, Cd52, Pilra, Osm
+```{r}
+DotPlot(data, features = c("H2-Aa", "H2-Ab1", "Cd74", "H2-DMb1", "Epcam", "H2-DMa", "Fn1", "Cd52", "Pilra", "Osm")) + RotatedAxis()
+```
+
+AM Mt	Mt2, Mt1, Prdx1, Ftl1, Lipa,  Hmox1, Creg1, Blvrb, Gstm1, Ctsb
+```{r}
+DotPlot(data, features = c("Mt2", "Mt1", "Prdx1", "Ftl1", "Lipa",  "Hmox1", "Creg1", "Blvrb", "Gstm1", "Ctsb")) + RotatedAxis()
+```
+
+AM IFN	Isg15, Ifih1, Peli1, Ly6e, Cybb, Samhd1, Sppl2a, Cd300lf, 1600014C10Rik, Selenow 
+```{r}
+DotPlot(data, features = c("Isg15", "Ifih1", "Peli1", "Ly6e", "Cybb", "Samhd1", "Sppl2a", "Cd300lf", "1600014C10Rik", "Selenow" )) + RotatedAxis()
+```
+
+AM Proliferative	Cbx3, Dek, Hmgb2, Tubb5, Anp32b, H2afz, Ptma, Ran, Tuba1b, Nap1l1
+```{r}
+DotPlot(data, features = c("Cbx3", "Dek", "Hmgb2", "Tubb5", "Anp32b", "H2afz", "Ptma", "Ran", "Tuba1b", "Nap1l1")) + RotatedAxis()
+```
+
+## TAM subtypes
+```{r IFN-TAM}
+DotPlot(data, features = c("Ccl2", "Ccl7", "Ccl8", "Cd274", "Cxcl9","Cxcl10","Cxcl11", "Ifit1","Ifit2", "Ifit3",  "Ifitm1", "Ifitm3", "Il7r", "Isg15", "Nos2", "Rsad2", "Tnfsf10", "Stat1" 
+                               
+                               )) + RotatedAxis()
+```
+
+Inflam-TAMs: Cxcl1/2/3/5/8, Ccl20, Ccl3l1, Il1rn, Il1b, G0s2, Inhba, Spp1
+```{r}
+DotPlot(data, features = c("Cxcl1", "Cxcl2", "Cxcl3", "Cxcl5", "Cxcl8","Ccl20","Ccl3l1", "Il1rn","Il1b", "G0s2",  "Inhba", "Spp1"
+                               )) + RotatedAxis()
+```
+
+
+LA-TAMs: Acp5, Apoc1, Apoe, C1qa/B/C, Ccl18, Ccl8, Cd163, Cd206, Cd36, Cd63, Ctsb/d/l, Cxcl9, Fabp5, Folr2, Gpnmb, Lgals3, Macro, Mrc1, Trem2
+```{r}
+DotPlot(data, features = c("Acp5", "Apoc1", "Apoe", "C1qa","C1qb","C1qc", "Ccl18", "Ccl8", "Cd163", "Cd206", "Cd36", "Cd63", "Ctsb", "Ctsd", "Ctsl", "Cxcl9", "Fabp5", "Folr2", "Gpnmb", "Lgals3", "Macro", "Mrc1", "Trem2"
+                               )) + RotatedAxis()
+```
+
+
+Angio-TAM:Arg1, Adam8, Bnip3, Mif, Slc2a1
+```{r}
+DotPlot(data, features = c("Arg1", "Adam8", "Bnip3", "Mif", "Slc2a1"
+                               )) + RotatedAxis()
+```
+
+reg_TAM: Apoe, Arg1, C1qa, Ccl2, Cd63, Clec4d, Cx3cr1, Gpnmb, Hilpda, Hmox1, Il7r, Mrc1, Pf4, Spp1, Trem2, Vegfa, Itga4,
+          Arg1+, Cx3cr1+, Cd206+, F4/80hi, Gpnmb+, Trem2+
+```{r}
+DotPlot(data, features = c("Apoe", "Arg1", "C1qa", "Ccl2", "Cd63", "Clec4d", "Cx3cr1", "Gpnmb", "Hilpda", "Hmox1", "Il7r", "Mrc1", "Pf4", "Spp1", "Trem2", "Vegfa", "Itga4"
+                               )) + RotatedAxis()
+```
+          
+Prolif-TAM: Cdk1, Mki67, Stmn1, Top2a, Tubb
+```{r}
+DotPlot(data, features = c("Cdk1", "Mki67", "Stmn1", "Top2a", "Tubb"
+                               )) + RotatedAxis()
+```
+
+RTM-TAM: 
+  alv like: Krt79, Krt19, Car4
+  MT-RTM like: MT1+, CD68+, CD163lo, CD206lo (maintenance of zinc conc, metallothioneins)
+```{r}
+DotPlot(data, features = c( "Krt79", "Krt19", "Car4"
+                               )) + RotatedAxis()
+```
+
+```{r}
+DotPlot(data, features = c("Mt1", "Cd68", "Cd163", "Cd206"
+                               )) + RotatedAxis()
+```
+  
+
+classical TIMs:Ccl2/9, Ccr2, Cd14, Cd300lf, Cxcl10, F13a1, Fcn1, Fn1, Ifi205, Ifit2/3, Il1r2, Isg20, Itga4, Ly6c2, Lyz, Mgst1, Plaur, S100a8/A9/A12, Sell, Tgm2, Thbs1, Tlr2, Vcan
+  Ly6c-, Ly6g+, Ccr2+
+```{r}
+DotPlot(data, features = c("Ccl2", "Ccl9", "Ccr2", "Cd14", "Cd300lf", "Cxcl10", "F13a1", "Fcn1", "Fn1", "Ifi205", "Ifit2","Ifit3", "Il1r2", "Isg20", "Itga4", "Ly6c2", "Lyz", "Mgst1", "Plaur", "S100a8","S110a9","S100a12", "Sell", "Tgm2", "Thbs1", "Tlr2", "Vcan"
+                               )) + RotatedAxis()
+```
+
+nonclassical mon: Ace, Adgre4, Cd300a, Cdkn1c, Ceacam1, Ear2, Il17ra, Itgal, Lilrb2, Lrp1, Spn, Stk10, Tnfrsf1b, Treml4
+  Ly6c-, Ly6g+, Ccr2–
+```{r}
+DotPlot(data, features = c("Ace", "Adgre4", "Cd300a", "Cdkn1c", "Ceacam1", "Ear2", "Il17ra", "Itgal", "Lilrb2", "Lrp1", "Spn", "Stk10", "Tnfrsf1b", "Treml4"
+                               )) + RotatedAxis()
+```
+intermediate mon: no mouse listed
+
+
+
+## Myeloid Subtypes: Biology of Lung Macrophages in Health and Disease
+using Biology of Lung Macrophages in Health and Disease as a reference, check genes from scRNAseq 
+alveolar macrophages (AM) - first line defenders aof alveoli and airwayss
+lung interstitual macrophages (IM) - gatekeepers of vascularture and lung interstitium 
+recruited macrophages (recMacs) - recruited monocytes that become part of the lung macrophage pool, unique transcriptome and function
+
+
+
+
+```{r}
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+```
+
+DCs: Cd26, Flt3, Zbtb46
+monocytes: Ly6c2, Ccr2, C5ar1, Fn1, Vcan, Csfr1, 
+IM: Pf4, C1wa, Mafb, C5ar1, Apoe 
+AM: Chil3, Pparg, Fabp4, Fabp5, Ear1, Krt79, Car4
+```{r comapre all }
+DotPlot(data, features = c("Cd26", "Flt3", "Zbtb46", "Ly6c2","Cd14", "Ccr2", "C5ar1", "Fn1", "Vcan", "Csfr1",
+                               "Chil3", "Pparg", "Fabp4", "Fabp5", "Ear1", "Krt79", "Car4")) +
+  
+  RotatedAxis()
+```
+
+
+```{r alveolar macrophages (AM)}
+DotPlot(data, features = c("Chil3", "Fabp5", "Flt1", "Pparg", "Fapb4", "Siglecf", "Car4", "Ear1", "Krt79")) + RotatedAxis()
+```
+
+```{r interstitial macrophages}
+DotPlot(data, features = c("C1qa", "C1qb", "C1qc", "Pf4", "C5ar1", "Apoe", "Cd14", "Csfr1", "Mafb", "Mrc1"))+ RotatedAxis()
+```
+recruited macrophages
+```{r recMacs}
+DotPlot(data, features = c("Ly6c2", "Ccr2", "Cd14", "Fn1", "Vcan", "Il1b", "S100a6", "S100a4", "Apoe", "Mafb", "C5ar1", "Ms4a4c"))+ RotatedAxis()
+```
+
+```{r cDC1}
+DotPlot(data, features = c("CD24a", "Itgae", "Xcr1", "Batf3", "Cadm1", "Dpp4", "Zbtb46", "Id2", "Flt3", "Irf8", "Tlr3", "Clec9a", "Cst3", "Wdfy4", "Cxcr3", "Rnase6", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r cDC2}
+DotPlot(data, features = c("Dpp4", "Zbtb46","Clec10a", "Ccl17", "Ccl22", "Fabp5", "S100a6", "S100a4", "Flt3", "Irf4", "H2-Ab1", "Cd209a", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r InfcDC2}
+DotPlot(data, features = c("Ifit1", "Ifit1bl1", "Ifit2", "Ifit", "Ifit3b", "Ifi205", "Ifi206", "Rsad2", "Phf11d", "Mx1", "Cmpk2", "Helz2"))+ RotatedAxis()
+```
+
+```{r pDC}
+DotPlot(data, features = c("Siglech", "Ly6d", "Ccr9", "Cox6a2", "Plac8", "Ly6c2", "Tcf3", "Bst2"))+ RotatedAxis()
+```
+
+## Neut Subtypes
+Cell Type	Marker Genes, supplemental table 
+Classical mono	Fn1, F13a1, Ly6c2, Ccr2, Mgst1, Wfdc17, C3, Hp, Hopx, Tgfbi
+Intermediate mono	H2-Aa, H2-Ab1, H2-DMb1, Tmem176a, Tmem176b, H2-Dma, Aif1, Cd74, Calr, Ifi27l2a
+Non-classical mono	Eno3, Ace, Pglyrp1, Spn, Cd300ld, Stap1, Adgre4, Dusp5, Smc6, Ceacam1
+Mature neu	Egr1, Fos, Ier2, Zfp36, Fgl2, Txni, Klf6, Rsrp1, Zfp36l2, Gm2a
+Transitional neu	Lcn2, Gc100530, Retnlg, Wfdc21, Gapdh, Ifitm2, Tspo, S100a6, Wfdc17, S100a8
+Immature neu	Ngp, Cd117, Chil3, Mmp8, Ly6c2, Camp, Adpgk, Serpinb1a, Ceacam10, Ltf
+Inflammatory neu	Tnfaip3, Ccrl2, Gadd45b, Il1r2, Ppp1r15a, Marcksl1, Nfkbiz, Nlrp3, Nfkbia, Ets2
+cDC1	Xcr1, Sept3, Itgae, Rab7b, Cd207, Ckb, Btla, Rtl8a, Sdad1, Ppt1
+cDC2	S100a4, Tmem176a, Tmem176b, Tnip3, Mgl2, S100a6, Wfdc17, Cd209a, Fcgr2b, Ctss
+IFN DC	Ifitm2, Ms4a6c, Ifitm3,Lgals3, Plac8, Fcer1g, S100a4, Ybx3, S100a6, Mrpl33
+Ccr7 DC	Ccr7, Fscn1, Cd63, Ccl5, Ccl22, Samsn1, Relb, Mxd1, Tmem123, Basp1
+pDC	Atp1b1, Ctsl, Ly6d, Sell, Iglc3, Siglech, Plac8, Runx2, Klk1, Cox6a2
+Prolif DC	Stmn1, Mki67, Smc2, Cks1b, Ptma, Hmgb2, Selenoh, Hmgn2, H2afz, Dek
+
+```{r}
+# mid- and late-stage mature neutrophils specifically expressed genes associated with degranulation (e.g., Igfbp6 and Lrg1) and disease-associated activation (e.g., Ifitm1 and Tspo)
+
+# inflammatory mature neutrophils that co-expressed Cd14, Cxcl2, and Nlrp3;
+
+DotPlot(subgroup, features = c("Igfbp6", "Lrg1", "Ifitm1", "Tspo", "Cd14", "Cxcl2", "Nlrp3")) + RotatedAxis()
+```
+
+
+Classical mono	Fn1, F13a1, Ly6c2, Ccr2, Mgst1, Wfdc17, C3, Hp, Hopx, Tgfbi
+```{r classical mon}
+DotPlot(data, features = c("Fn1", "F13a1", "Ly6c2", "Ccr2", "Mgst1", "Wfdc17", "C3", "Hp", "Hopx", "Tgfbi")) + RotatedAxis()
+```
+
+Intermediate mono	H2-Aa, H2-Ab1, H2-DMb1, Tmem176a, Tmem176b, H2-Dma, Aif1, Cd74, Calr, Ifi27l2a
+```{r}
+DotPlot(data, features = c("H2-Aa", "H2-Ab1", "H2-DMb1", "Tmem176a", "Tmem176b", "H2-Dma", "Aif1", "Cd74", "Calr", "Ifi27l2a")) + RotatedAxis()
+```
+
+Nonclassical mon	Eno3, Ace, Pglyrp1, Spn, Cd300ld, Stap1, Adgre4, Dusp5, Smc6, Ceacam1
+```{r nonclassical mon}
+DotPlot(data, features = c("Eno3", "Ace", "Pglyrp1", "Spn", "Cd300ld", "Stap1", "Adgre4", "Dusp5", "Smc6", "Ceacam1")) + RotatedAxis()
+
+```
+
+Mature neu	Egr1, Fos, Ier2, Zfp36, Fgl2, Txni, Klf6, Rsrp1, Zfp36l2, Gm2a
+```{r mature neut}
+DotPlot(data, features = c("Egr1", "Fos", "Ier2", "Zfp36", "Fgl2", "Txni", "Klf6", "Rsrp1", "Zfp36l2", "Gm2a")) + RotatedAxis()
+```
+
+Transitional neu	Lcn2, Gc100530, Retnlg, Wfdc21, Gapdh, Ifitm2, Tspo, S100a6, Wfdc17, S100a8
+```{r transitional neut}
+DotPlot(data, features = c("Lcn2", "Gc100530", "Retnlg", "Wfdc21", "Gapdh", "Ifitm2", "Tspo", "S100a6", "Wfdc17", "S100a8")) + RotatedAxis()
+```
+
+Immature neu	Ngp, Cd117, Chil3, Mmp8, Ly6c2, Camp, Adpgk, Serpinb1a, Ceacam10, Ltf
+```{r immature neut}
+DotPlot(data, features = c("Ngp", "Cd117", "Chil3", "Mmp8", "Ly6c2", "Camp", "Adpgk", "Serpinb1a", "Ceacam10", "Ltf")) + RotatedAxis()
+```
+
+Inflammatory neu	Tnfaip3, Ccrl2, Gadd45b, Il1r2, Ppp1r15a, Marcksl1, Nfkbiz, Nlrp3, Nfkbia, Ets2
+```{r inflammatory neut}
+DotPlot(data, features = c("Tnfaip3", "Ccrl2", "Gadd45b", "Il1r2", "Ppp1r15a", "Marcksl1", "Nfkbiz", "Nlrp3", "Nfkbia", "Ets2")) + RotatedAxis()
+```
+
+cDC1	Xcr1, Sept3, Itgae, Rab7b, Cd207, Ckb, Btla, Rtl8a, Sdad1, Ppt1
+```{r}
+DotPlot(data, features = c("Xcr1", "Sept3", "Itgae", "Rab7b", "cd207", "Ckb", "Btla", "Rtl8a", "Sdad1", "Ppt1")) + RotatedAxis()
+```
+
+cDC2	S100a4, Tmem176a, Tmem176b, Tnip3, Mgl2, S100a6, Wfdc17, Cd209a, Fcgr2b, Ctss
+```{r}
+DotPlot(data, features = c("S100a4", "Tmem176a", "Tmem176b", "Tnip3", "Mgl2", "S100a6", "Wfdc17", "Cd209a", "Fcgr2b", "Ctss")) + RotatedAxis()
+```
+
+IFN DC	Ifitm2, Ms4a6c, Ifitm3,Lgals3, Plac8, Fcer1g, S100a4, Ybx3, S100a6, Mrpl33
+```{r}
+DotPlot(data, features = c("Ifitm2", "Ms4a6c", "Ifitm3","Lgals3", "Plac8", "Fcer1g", "S100a4", "Ybx3", "S100a6", "Mrpl33")) + RotatedAxis()
+```
+
+Ccr7 DC	Ccr7, Fscn1, Cd63, Ccl5, Ccl22, Samsn1, Relb, Mxd1, Tmem123, Basp1
+```{r}
+DotPlot(data, features = c("Ccr7", "Fscn1", "Cd63", "Ccl5", "Ccl22", "Samsn1", "Relb", "Mxd1", "Tmem123", "Basp1")) + RotatedAxis()
+```
+
+pDC	Atp1b1, Ctsl, Ly6d, Sell, Iglc3, Siglech, Plac8, Runx2, Klk1, Cox6a2
+```{r}
+DotPlot(data, features = c("Atp1b1", "Ctsl", "Ly6d", "Sell", "Iglc3", "Siglech", "Plac8", "Runx2", "Klk1", "Cox6a2")) + RotatedAxis()
+```
+
+Prolif DC	Stmn1, Mki67, Smc2, Cks1b, Ptma, Hmgb2, Selenoh, Hmgn2, H2afz, Dek
+```{r}
+DotPlot(data, features = c("Stmn1", "Mki67", "Smc2", 'Cks1b', "Ptma", "Hmgb2", "Selenoh", "Hmgn2", "H2afz", "Dek")) + RotatedAxis()
+```
+
+
+
+
+### Neutrophils/MDSC
+general neut
+```{r}
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+DotPlot(data, features = c("Il1b", "Ltf", "Mmp9", "Mmp8", "Wfdc17" ,"Cxcr4", "Fcgr3", "Il17ra", "Cxcr2", "Mpo")) + RotatedAxis()
+
+```
+```{r}
+DotPlot(data, features = c("Camp", "Ly6g", "Ltf", "Mmp9", "Mmp8", "Retnlg" ,"Cxcr4", "S100a8", "S100a9", "Cxcr2", "Mpo")) + RotatedAxis()
+```
+
+MDSC
+https://www.nature.com/articles/s41571-023-00846-y?fromPaywallRec=false
+```{r}
+DotPlot(data, features = c("Il1b", "Ly6g", "Ltf", "Mmp9", "Mmp8", "Wfdc17" ,"Cxcr4", "Fcgr3", "Il17ra", "Cxcr2", "Mpo")) + RotatedAxis()
+# Cd49a [Itga4]
+DotPlot(data, features = c("Itgam", "Ly6g", "Itga4", "Mmp9", "Mmp8", "Retnlg" ,"Camp", "Fcgr3", "Ccr5", "Cxcr2", "Il10")) + RotatedAxis()
+```
+
+IFN stimulated Neut ??
+```{r}
+DotPlot(data, features = c("Ly6e", "Cd274", "Cxcl9","Cxcl10","Cxcl11", "Ifit1","Ifit2", "Ifit3",  "Ifitm1", "Ifitm3", "Il7r", "Isg15", "Nos2", "Rsad2",
+                           "Camp", "Ltf", "Retnlg", "Ly6g")) + RotatedAxis()
+```
+Neutrophil 4T1 responders/non-responders
+https://pmc.ncbi.nlm.nih.gov/articles/PMC10864002/#:~:text=discover%20a%20promising%20new%20biomarker:%20interferon%2Dstimulated%2C%20Ly6Ehi,correlates%20with%20immunotherapy%20outcomes%20across%20cancer%20types.&text=Notably%2C%20this%20cluster%20displayed%20a%20high%20level,assay%20these%20cells%20in%20human%20(Figure%206C).
+
+```{r}
+DotPlot(data, features = c("Il1a", "Cxcl3", "Tnf", "Ly6e", "Cxcl1", "Ccl4" ,"Saa3", "Il23a", "Ccl3", "Cxcl2", "Wfdc17", "Ifitm2", "Ifitm1", "Lsp1", "Retnlg", "Jun", "S100a11", "Fos", "S100a9", "Socs3")) + RotatedAxis()
+```
+
+Inflammatory Neut
+```{r}
+DotPlot(data, features = c("Cd63", "Cd49", "Cxcr2", "Il17r", "Ceacam8", "Itgam", "Cd33", "Mpo", "Cd10", "Tnfa", "Il1b", "Il17", "Il8", "Ccr2", "Ccr1", "S1008a")) + RotatedAxis()
+```
+
+```{r}
+DotPlot(data, features = c("Itgam", "Srgn", "Saa3", "Gzmb", "Ccr3", "Hcrtr2" ,"Fcer1a", "Il3ra", "Siglecf", "Cd44", "Mpo")) + RotatedAxis()
+```
+### ILCs
+CD127 [Il7r], Il2ra, Il33r, Cd90, Cd117, Ly5
+```{r}
+DotPlot(data, features = c("Il7r", "Il2ra", "Il1rl1", "Thy1", "Kit", "Ptprc", "Ccr2")) + RotatedAxis()
+```
+
+### basophils
+Hcrtr2, Fcer1a, Il3ra (Basophils)
+Ccr3, Siglecf, Cd44
+CD124 (Il3ra), CD204c [Msr1], Cd63, Cd18, Ccr3, Enpp3
+Ccr3, Cd69, c-Kit, Cd200r3, Crth-2, Enpp3, Fcer1a, Cd49b [Itga2], Cd41 [Itga2b], Itgb7, 
+
+```{r}
+DotPlot(data, features = c("Itgam", "Cd63", "Hepa", "Gzmb", "Ccr3", "Hcrtr2" ,"Fcer1a", "Il3ra", "Siglecf", "Cd44", "Mpo",  "Itgb2", "Enpp3", "Itga2", "Itga2b", "Itgb7" )) + RotatedAxis()
+```
+### mast cells 
+CD117 (c-Kit), FcerI, Tryptase, Chymase, Cd34, Cd13 [Anpep]
+```{r}
+DotPlot(data, features = c("Kit", "Fcer1a", "Cd34", "Anpep", "Tpsab1", "Tpsb2", "Tpsg1", "Cma1", "Cma2"))
+```
+
+
+
+### cancer 
+```{r 4T1, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Epcam", "Krt18", "Mki67", "Esr1"))
+```
+
+### Lung specific cells 
+```{r pulmonary_alv_type1, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default' }
+DotPlot(data, features = c("Col4a3", "Cldn18", "Fstl3", "Sema3b", "Vegfa" ,"Ager", "Col4a4")) + RotatedAxis()
+
+```
+
+
+```{r pulmonary_alv_type2, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default' }
+DotPlot(data, features = c("Sftpc", "Slc34a2", "Sftpa1", "Nkx2-1", "Etv5" ,"Lamp5", "Muc1", "Epcam")) + RotatedAxis()
+
+```
+
+```{r ionocytes, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Foxi1", "Ctfr", "Ascl3", "Foxn4", "Cyp2f2" ,"Scgb1a1", "Tfcp2l1")) + RotatedAxis()
+```
+
+```{r alv_macrophages, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Marco", "Itgax", "Mrc1", "Siglecf", "Ccl3" ,"Car4", "Lyz1")) + RotatedAxis()
+```
+
+```{r airway_goblet, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Ggh", "Muc16", "Dusp4", "Muc5b", "Ltf" ,"Muc4", "Muc20")) + RotatedAxis()
+```
+
+```{r airway_epithelial, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Aqp1", "Cdh1", "Sec14l3", "Adh7")) + RotatedAxis()
+```
+
+```{r airway_epithelial, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Aqp5", "Ager", "Pdpn", "Cav1", "Hopx", 
+                           "Abca3", "Slc34a2", "Gabrp", "Mpa" ,"Sp-a", 
+                           "Apoa1", "Apoa2", "Fga", "Fgg", "Fgb", "Gc", "Alb")) + RotatedAxis()
+DotPlot(data, features = c("Apoa1", "Apoa2", "Fga", "Fgg", "Fgb", "Gc", "Alb")) + RotatedAxis()
+```
+
+### lineage
+```{r lineage, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Ptprc", "Itgam", "Cd33", "Cd34", "Pecam1" ,"Epcam", "Col1a1")) + RotatedAxis()
+```
+
+
+
+## Identifying the Unknown Clusters
+```{r join layers set id }
+data <- JoinLayers(data)
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+```
+
+
+```{r cluster 0}
+FindMarkers(data, ident.1 = 19, only.pos = TRUE)[1:20,]
+```
+
+HSPs: heat shock proteins, could be good or bad
+Trac: T cell receptor alpha, req for function
+Lat: linker for activation of T cells, crucial for activation and function
+Lef1: CD8 / NKT support 
+Tcf7:
+Trbc2: T cell receptor beta chain
+
+```{r}
+Idents(data) <- "SCT_snn_res.0.6"
+Idents(data) <- "phenotype"
+
+data <- PrepSCTFindMarkers(data)
+```
+
+
+```{r cluster 1}
+FindMarkers(data, ident.1 = 1, only.pos = TRUE)[1:10,]
+```
+```{r cluser 2}
+# 
+FindMarkers(data, ident.1 = 2, only.pos = TRUE)[1:10,]
+```
+
+```{r cluster 3}
+FindMarkers(data, ident.1 = 3, only.pos = TRUE)[1:10,]
+```
+```{r cluster 7}
+FindMarkers(data, ident.1 = "Basophils", only.pos = TRUE)[1:20,]
+```
+```{r cluster 8}
+FindMarkers(data, ident.1 = 'Unknown 2', only.pos = TRUE)[1:20,]
+```
+```{r cluster 9}
+FindMarkers(data, ident.1 = "16", only.pos = TRUE)[1:20,]
+```
+```{r cluster 10}
+FindMarkers(data, ident.1 = "Unknown 3", only.pos = TRUE)[1:10,]
+```
+```{r cluster 16}
+FindMarkers(data, ident.1 = "Cdh1+", only.pos = TRUE)[1:10,]
+```
+```{r cluster 21}
+FindMarkers(data, ident.1 = 21, only.pos = TRUE)[1:10,]
+```
+```{r cluster 22}
+FindMarkers(data, ident.1 = 22, only.pos = TRUE)[1:10,]
+```
+```{r cluster 25}
+FindMarkers(data, ident.1 = 25, only.pos = TRUE)[1:10,]
+```
+```{r cluster 27}
+FindMarkers(data, ident.1 = 27, only.pos = TRUE)[1:10,]
+```
+```{r cluster 28}
+FindMarkers(data, ident.1 = 28, only.pos = TRUE)[1:10,]
+```
+
+
+
+
+# Conserved Marker ID for unknown clusters
+https://hbctraining.github.io/scRNA-seq/lessons/09_merged_SC_marker_identification.html
+
+Since we have samples representing different conditions in our dataset, our best option is to find conserved markers. This function internally separates out cells by sample group/condition, and then performs differential gene expression testing for a single specified cluster against all other clusters (or a second cluster, if specified). Gene-level p-values are computed for each condition and then combined across groups using meta-analysis methods from the MetaDE R package.
+
+```{r}
+DefaultAssay(data) <- "RNA"
+Idents(data) <- data@meta.data$phenotype
+```
+
+```{r}
+cluster0_conserved_markers <- FindConservedMarkers(data,
+                     ident.1 = 'Neutrophil',
+                     grouping.var = "shortname",
+                     only.pos = TRUE,
+		     min.diff.pct = 0.25,
+                     min.pct = 0.25,
+		     logfc.threshold = 0.25)
+
+```
+
+```{r}
+# load annotation file
+annotation <- read_csv("Data/annotation.csv")
+```
+
+
+```{r}
+# Combine markers with gene descriptions 
+cluster0_ann_markers <- cluster0_conserved_markers %>% 
+                rownames_to_column(var="gene") %>% 
+                left_join(y = unique(annotation[, c("gene_name", "description")]),
+                          by = c("gene" = "gene_name"))
+
+View(cluster0_ann_markers)
+```
+
+
+## run conserved marker on unknown clusters
+```{r}
+# Create function to get conserved markers for any given cluster
+get_conserved <- function(cluster){
+  FindConservedMarkers(subgroup,
+                       ident.1 = cluster,
+                       grouping.var = "shortname",
+                       only.pos = TRUE) %>%
+    rownames_to_column(var = "gene") %>%
+    left_join(y = unique(annotation[, c("gene_name", "description")]),
+               by = c("gene" = "gene_name")) %>%
+    cbind(cluster_id = cluster, .)
+  }
+```
+
+```{r}
+Idents(data) <- data@meta.data$SCT_snn_res.0.6
+# Iterate function across desired clusters
+unknown_conserved_markers <- map_dfr(c(4,7,16, 21, 27, 28), get_conserved)
+conserved_markers <- map_dfr(c(0:28), get_conserved)
+
+```
+
+## Evaluate Marker Genes
+```{r}
+# Extract top 10 markers per cluster
+top10 <- conserved_markers %>% 
+  mutate(avg_fc = (lung_stro_avg_log2FC + lung_imm_avg_log2FC + lung_np_avg_log2FC + lung_tb_avg_log2FC) / 4) %>% 
+  group_by(cluster_id) %>% 
+  top_n(n = 10, 
+        wt = avg_fc)
+
+# Visualize top 10 markers per cluster
+View(top10)
+write.csv(top10, file = "Data/top10_conserved_markers.csv")
+```
+
+## View specific cluster's conserved markers
+```{r}
+conserved_markers %>% filter(cluster_id == 23)
+```
+
+## test non-conserved marker
+```{r}
+FindMarkers(data, ident.1 = "Neutrophil")
+```
+
+
+## Feature Plot code
+```{r pDC feat plot}
+FeaturePlot(data, 
+            reduction = "umap", 
+            features = c("Il3ra", "Gzmb", "Serpinf1", "Itm2c"), 
+            min.cutoff = 'q10', 
+            label = TRUE)
+```
+
+```{r pDCs dot plot, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(data, features = c("Il3ra", "Gzmb", "Serpinf1", "Itm2c")) + 
+  RotatedAxis()
+```
+
+
+# Naming Clusters
+```{r phenotype}
+Idents(data)  <- data@meta.data$SCT_snn_res.0.6
+data <- RenameIdents(data, '0' = 'Neutrophil', '1' = 'Neutrophil', '2' = 'moDC', '3' =
+                        'recMac', '4' = 'Neutrophil', '5' = 'B Cell',
+                      '6' = 'Endothelial', '7' = 'IFN Stimulated Neutrophil', '8' = 'Monocyte', '9' = 'NK Cell',
+                      '10' = 'Neutrophil', '11' = 'T Central Mem', '12' = 'Neutrophil', '13' = 'Endothelial', 
+                      '14' = 'Neutrophil', '15' = 'Endothelial', '16' = 'Inflammatory Neutrophil', '17' = 'Neutrophil', 
+                      '18' = 'Th1 T Cell', '19' = 'HSP+ T Cell', '20' = 'Neutrophil', '21' = 'AT2',
+                      '22' = 'alvMac', '23' = 'Fibroblast', '24' = 'Endothelial', '25' = 'recMac',
+                      '26' = 'B Cell', '27' = 'Basophils', '28' = '4T1')
+data@meta.data$phenotype = data@active.ident
+
+```
+
+```{r}
+Idents(data) <- data@meta.data$phenotype
+DimPlot(data, label = TRUE, split.by="shortname")
+```
+```{r}
+Idents(data) <- data@meta.data$phenotype
+DimPlot(data, label = TRUE)
+```
+
+## Name Lineage Clusters
+```{r lineage}
+Idents(data)  <- data@meta.data$SCT_snn_res.0.6
+data <- RenameIdents(data, '0' = 'Myeloid', '1' = 'Myeloid', '2' = 'Myeloid', '3' =
+                        'Resident Immune', '4' = 'Myeloid', '5' = 'Immune',
+                      '6' = 'Endothelial', '7' = 'Unknown 1', '8' = 'Myeloid', '9' = 'Immune',
+                      '10' = 'Myeloid', '11' = 'Immune', '12' = 'Myeloid', '13' = 'Endothelial', 
+                      '14' = 'Myeloid', '15' = 'Endothelial', '16' = 'Unknown 2', '17' = 'Myeloid', 
+                      '18' = 'Immune', '19' = 'Immune', '20' = 'Myeloid', '21' = 'Unknown 3',
+                      '22' = 'Resident Immune', '23' = 'Stromal', '24' = 'Endothelial', '25' = 'Resident Immune',
+                      '26' = 'Immune', '27' = 'Unknown 4', '28' = 'Epithelial')
+data@meta.data$lineage = data@active.ident
+```
+
+```{r}
+Idents(data) <- data@meta.data$lineage
+DimPlot(data, label = TRUE)
+
+```
+```{r}
+DimPlot(data, split.by = "shortname")
+```
+
+
+```{r}
+DimPlot(data, reduction = "umap", label = T, group.by = c("shortname", "lineage"))
+```
+
+
+```{r}
+Idents(data) <- data@meta.data$lineage
+DimPlot(data, reduction = "umap", label = TRUE) #+ NoLegend()
+```
+## Add Complete Identifier
+```{r}
+data@meta.data$identity <- paste0(data@meta.data$shortname, "_", data@meta.data$phenotype)
+```
+
+
+
+
+# Save Object
+```{r}
+saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+data <- readRDS(file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+```
+
+# Create Sub-Type R Objects
+For downstream analysis, want to analyze each cell by subtype. Make separate R objects/Seurat objects for each 
+
+```{r}
+Idents(data) <- data@meta.data$phenotype
+```
+
+```{r myeloid}
+neut <- subset(data, idents = c("Neutrophil"))
+saveRDS(neut, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_neutrophil.rds")
+
+recMac <- subset(data, idents = c("recMac"))
+saveRDS(recMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_recruited_macrophage.rds")
+
+mac <- subset(data, idents = c("Macrophage"))
+saveRDS(mac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_macrophage.rds")
+
+alvMac <- subset(data, idents = c("alvMac"))
+saveRDS(alvMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_alveolar_macrophage.rds")
+
+allMac <- subset(data, idents = c("Macrophage", "recMac", "alvMac"))
+saveRDS(allMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage.rds")
+
+allMyeloid <- subset(data, idents = c("Macrophage", "recMac", "alvMac", "Neutrophil", "Unknown 1", "Unknown 2"))
+saveRDS(allMyeloid, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_myeloid.rds")
+
+rm(neut, recMac, mac, alvMac, allMac)
+```
+
+
+```{r non-myeloid}
+tcell <- subset(data, idents = c("T cell"))
+saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_tcell.rds")
+
+bcell <- subset(data, idents = c("B cell"))
+saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_bcell.rds")
+
+endo <- subset(data, idents = c("Endothelial"))
+saveRDS(endo, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_endothelial.rds")
+
+nkcell <- subset(data, idents = c("NK cell"))
+saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_nkcell.rds")
+
+fibro <- subset(data, idents = c("Fibroblast"))
+saveRDS(fibro, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_fibroblast.rds")
+
+cancer <- subset(data, idents = c("4T1"))
+saveRDS(fibro, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_4T1_cancer.rds")
+
+rm(tcell, bcell, endo, nkcell, fibro, cancer)
+```
+
+
+
+# OLD
+# Myeloid Populations Subclustering
+if lineage is myeloid, group together and recluster for better res 
+```{r}
+Idents(data) <- data@meta.data$lineage
+subgroup <- subset(data, idents = c("Myeloid"))
+```
+
+## SCT Myeloid Populations
+```{r}
+subgroup <- SCTransform(subgroup)
+subgroup <- RunPCA(subgroup)
+```
+
+
+```{r}
+subgroup <- FindNeighbors(subgroup, dims = 1:10)
+subgroup <- FindClusters(subgroup)
+subgroup <- RunUMAP(subgroup, dims = 1:10)
+DimPlot(subgroup, reduction = "umap", group.by = c("sample", "seurat_clusters"))
+```
+
+```{r}
+DimPlot(subgroup, label =T)
+```
+
+## ID Myeloid Cell Types
+```{r immune_id, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(subgroup, features = c("Cd3e", "Cd4", "Cd8a",
+                            "Ncr1", "Klrb1c", "Klre1",
+                            "Cd79a", "Cd19", "Ms4a1", "Iglc3",
+                            "Ighm",
+                            "Itgam",
+                            "Cd33",
+                            "Ly6c2", "Cd14", "Ccr2",
+                            "Smox", "Apoe", "Adgre1",
+                            "Tmem119", "Trem2", "P2ry12",
+                            "Camp", "Retnlg", "Ly6g",
+                            "Cd86", "Siglech", "Klk1",
+                            "Hcrtr2", "Fcer1a", "Il3ra",
+                            "Ccr3", "Siglecf", "Cd44")) + RotatedAxis()
+```
+
+```{r identify myeloid subtypes}
+DotPlot(subgroup, features = c("Adgre1", "Cd14", "Retnlg", "Itgax", "Siglecf", "Cd86", "Cd34"))
+```
+```{r}
+DotPlot(subgroup, features = c("Marco", "Itgax", "Mrc1", "Siglecf", "Ccl3" ,"Car4", "Lyz1", "Siglec1")) + RotatedAxis()
+
+```
+
+## Myeloid Subtypes: Biology of Lung Macrophages in Health and Disease
+using Biology of Lung Macrophages in Health and Disease as a reference, check genes from scRNAseq 
+alveolar macrophages (AM) - first line defenders aof alveoli and airwayss
+lung interstitual macrophages (IM) - gatekeepers of vascularture and lung interstitium 
+recruited macrophages (recMacs) - recruited monocytes that become part of the lung macrophage pool, unique transcriptome and function
+
+
+
+
+```{r}
+Idents(myeloid) <- subgroup@meta.data$SCT_snn_res.0.4
+```
+
+DCs: Cd26, Flt3, Zbtb46
+monocytes: Ly6c2, Ccr2, C5ar1, Fn1, Vcan, Csfr1, 
+IM: Pf4, C1wa, Mafb, C5ar1, Apoe 
+AM: Chil3, Pparg, Fabp4, Fabp5, Ear1, Krt79, Car4
+```{r comapre all }
+DotPlot(data, features = c("Cd26", "Flt3", "Zbtb46", "Ly6c2", "Ccr2", "C5ar1", "Fn1", "Vcan", "Csfr1",
+                               "Chil3", "Pparg", "Fabp4", "Fabp5", "Ear1", "Krt79", "Car4")) +
+  
+  RotatedAxis()
+```
+
+
+```{r alveolar macrophages (AM)}
+DotPlot(subgroup, features = c("Chil3", "Fabp5", "Flt1", "Pparg", "Fapb4", "Siglecf", "Car4", "Ear1", "Krt79")) + RotatedAxis()
+```
+
+```{r interstitial macrophages}
+DotPlot(subgroup, features = c("C1qa", "C1qb", "C1qc", "Pf4", "C5ar1", "Apoe", "Cd14", "Csfr1", "Mafb", "Mrc1"))+ RotatedAxis()
+```
+recruited macrophages
+```{r recMacs}
+DotPlot(subgroup, features = c("Ly6c2", "Ccr2", "Cd14", "Fn1", "Vcan", "Il1b", "S100a6", "S100a4", "Apoe", "Mafb", "C5ar1", "Ms4a4c"))+ RotatedAxis()
+```
+
+```{r cDC1}
+DotPlot(subgroup, features = c("CD24a", "Itgae", "Xcr1", "Batf3", "Cadm1", "Dpp4", "Zbtb46", "Id2", "Flt3", "Irf8", "Tlr3", "Clec9a", "Cst3", "Wdfy4", "Cxcr3", "Rnase6", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r cDC2}
+DotPlot(subgroup, features = c("Cpp4", "Zbtb46","Clec10a", "Ccl17", "Ccl22", "Fabp5", "S100a6", "S100a4", "Flt3", "Irf4", "H2-Ab1", "Cd209a", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r InfcDC2}
+DotPlot(subgroup, features = c("Ifit1", "Ifit1bl1", "Ifit2", "Ifit", "Ifit3b", "Ifi205", "Ifi206", "Rsad2", "Phf11d", "Mx1", "Cmpk2", "Helz2"))+ RotatedAxis()
+```
+
+```{r pDC}
+DotPlot(subgroup, features = c("Siglech", "Ly6d", "Ccr9", "Cox6a2", "Plac8", "Ly6c2", "Tcf3", "Bst2"))+ RotatedAxis()
+```
+
+## look at unknown clusters 
+```{r cluster 17 unknown}
+FindMarkers(subgroup, ident.1 = 17, only.pos = TRUE)[1:10,]
+```
+
+## Name myeloid clusters 
+```{r name myeloid clusters}
+Idents(subgroup)  <- data@meta.data$SCT_snn_res.0.6
+data <- RenameIdents(data, '0' = 'Neutrophil', '1' = 'Neutrophil', '2' = 'Macrophage', '3' =
+                        'Unkown 1', '4' = 'Neutrophil', '5' = 'B cell',
+                      '6' = 'Endothelial', '7' = 'Unknown 2', '8' = 'Macrophage', '9' = 'NK cell',
+                      '10' = 'Neutrophil', '11' = 'T cell', '12' = 'Neutrophil', '13' = 'Endothelail', 
+                      '14' = 'Neutrophil', '15' = 'Endothelial', '16' = 'Unknown 3', '17' = 'Neutrophil', 
+                      '18' = 'Alveolar macrophages', '19' = 'T cell', '20' = 'Neutrophil', '21' = 'Unknown 4')
+data@meta.data$phenotype = data@active.ident
+
+```
+
+
+
+
+# SingleR
+some references/tutorials: 
+Bioconductor vignette: https://bioconductor.org/packages/release/bioc/vignettes/SingleR/inst/doc/SingleR.html#2_Using_built-in_references
+Bioconductor SingleR book: https://bioconductor.org/books/release/SingleRBook/introduction.html#quick-start
+
+Cell References 
+celldex: pokedex for celltypes, https://bioconductor.org/packages/3.19/data/experiment/vignettes/celldex/inst/doc/userguide.html
+
+
+Install packages if not already installed: 
+issue with alabaster.base , try alternate install for that package? 
+https://www.bioconductor.org/packages/release/bioc/html/alabaster.base.html 
+* 5/7/24 KG
+
+```{r}
+# BiocManager::install("SingleR")
+# BiocManager::install("scRNAseq")
+# BiocManager::install("celldex") # this one failed "ERROR: dependency ‘alabaster.base’ is not available for package # ‘celldex’
+```
+
+```{r echo=FALSE, results="hide", message=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+library(BiocStyle)
+# library(celldex)
+library(scRNAseq)
+library(SingleR)
+
+```
+
+Search function is throwing an error- package didn't install correctly?? 5/7/24 KG
+```{r load ref dataset}
+# Find all mm10 datasets involving pancreas or neurons.
+scRNAseq::searchDatasets(
+   defineTextQuery("GRCm38", field="genome") &
+   (defineTextQuery("neuro%", partial=TRUE) | 
+    defineTextQuery("spin%", partial=TRUE))
+)[,c("name", "title")]
+```
+
+## obtain reference dataset
+
+Use scRNAseq package to obtain a reference dataset: 
+Zeisel A et al. (2018). Molecular architecture of the mouse nervous system. Cell 174(4), 999-1014.
+mouse nervous system single cell RNA-seq from Zeisel et al 2018
+Row data contains the gene symbol as well as some relevant per-gene statistics, e.g., the squared coefficient of variance, mean, and whether it was selected for downstream analyses.
+Column data contains a wide variety of fields including patient-level information, sample-level sequencing statistics and many flavors of cell type classification. Note that many numeric columns may have NA values if they could not be successfully parsed form the source file.
+If location=TRUE, the coordinates of the Ensembl gene models are stored in the rowRanges of the output.
+All data are downloaded from ExperimentHub and cached for local re-use. Specific resources can be retrieved by searching for scRNAseq/zeisel-nervous.
+```{r scRNAseq ref dataset}
+ref_data <- ZeiselNervousData(location = TRUE)
+```
+
+Using celldex to obtain a reference dataset: 
+```{r celldex ref dataset}
+# celldex::searchReferences(
+#     defineTextQuery("immun%", partial=TRUE) & 
+#     defineTextQuery("10090", field="taxonomy_id")
+# )
+
+ms_ref <- celldex::MouseRNAseqData(ensembl = FALSE, cell.ont = "all")
+
+# Immunological Genome Project (ImmGen) 
+# microarray of pure mouse immune cells 
+immgen_ref <- celldex::ImmGenData(ensembl = FALSE, cell.ont = "all")
+```
+
+
+### singleR using built in reference (Bioconductor tutorial)
+```{r}
+hpca.se <- HumanPrimaryCellAtlasData()
+hpca.se
+```
+
+```{r}
+hESCs <- LaMannoBrainData('human-es')
+hESCs <- hESCs[,1:100]
+```
+
+```{r}
+pred.hesc <- SingleR(test = data, ref = ref_data, assay.type.test=1,
+    labels = ref_data$label.main)
+```
+
+
+```{r}
+pred.hesc
+# Summarizing the distribution:
+table(pred.hesc$labels)
+```
+
+### singleR using single-cell references (Bioconductor tutorial)
+
+```{r}
+library(scRNAseq)
+sceM <- MuraroPancreasData()
+
+# One should normally do cell-based quality control at this point, but for
+# brevity's sake, we will just remove the unlabelled libraries here.
+sceM <- sceM[,!is.na(sceM$label)]
+
+# SingleR() expects reference datasets to be normalized and log-transformed.
+library(scuttle)
+sceM <- logNormCounts(sceM)
+```
+
+```{r}
+sceG <- GrunPancreasData()
+sceG <- sceG[,colSums(counts(sceG)) > 0] # Remove libraries with no counts.
+sceG <- logNormCounts(sceG) 
+```
+
+```{r}
+pred.grun <- SingleR(test=sceG, ref=sceM, labels=sceM$label, de.method="wilcox")
+table(pred.grun$labels)
+```
+
+### Visualization of singleR predictions (Bioconductor tutorial)
+
+```{r}
+plotScoreHeatmap(pred.grun)
+```
+
+```{r}
+plotDeltaDistribution(pred.grun, ncol = 3)
+
+```
+
+```{r}
+summary(is.na(pred.grun$pruned.labels))
+
+```
+
+```{r}
+all.markers <- metadata(pred.grun)$de.genes
+sceG$labels <- pred.grun$labels
+
+# Beta cell-related markers
+library(scater)
+plotHeatmap(sceG, order_columns_by="labels",
+    features=unique(unlist(all.markers$beta))) 
+```
+
+### accessing new references
+ArrayExpress and GEOquery can be used to access any bulk or single cell datasets in ArrayExpress or GEO
+
+
+# SessionInfo
+```{r}
+sessionInfo()
+```
+
+

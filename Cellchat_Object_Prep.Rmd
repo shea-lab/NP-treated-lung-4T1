@@ -1,0 +1,251 @@
+---
+title: "Cellchat_Object_Prep"
+output: html_document
+date: "2024-11-26"
+---
+# Load Packages
+```{r}
+setwd("~/Documents/Kate/NMMscRNAseq/Figures/Cellchat/")
+cellchat.path <- "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/"
+
+data <- readRDS(file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+#BiocManager::install("BiocNeighbors")
+#devtools::install_github("jokergoo/ComplexHeatmap")
+#devtools::install_github("jinworks/CellChat")
+library(CellChat)
+library(patchwork)
+library(Seurat)
+```
+
+# Load Seurat Object 
+## drop unknowns
+unknowns solved 4/4/25
+
+```{r}
+# Idents(data) <- "phenotype"
+# data <- subset(data, idents = c("Neutrophil", "moDC","recMac","B cell", "Endothelial","Macrophage" ,"NK cell" , "T Central Mem", "Th1 T Cell" , "HSP+ T Cell","alvMac"  , "Fibroblast" ,"Cdh1+"   , "4T1"))
+# data@meta.data$phenotype <- data@active.ident
+```
+
+## make shortname idents for plotting
+```{r}
+# data@meta.data$phenotype <- data@active.ident
+data@meta.data$short <- data@meta.data$phenotype
+
+Idents(data)  <- data@meta.data$short
+# Idents(subgroup)  <- subgroup@meta.data$SCT_snn_res.0.6
+data <- RenameIdents(data, "Neutrophil" = "Neut","B cell" = "B", "Endothelial" = "Endo","Macrophage" = "Mac" ,"NK cell" = "NK" , "T Central Mem" = "Tcm", "Th1 T Cell" = "Th1" , "HSP+ T Cell" = "HSP T" , "Fibroblast" = "Fib", "Inflammatory Neutrophil" = "Infl Neut", "IFN Stimulated Neutrophil" = "IFN Neut")
+data@meta.data$short = data@active.ident
+
+data@meta.data$name <- data@meta.data$shortname
+Idents(data) <- "name"
+data <- RenameIdents(data, "NP+" = "lung_np", "NP-" = "lung_imm", "Untreated" = "lung_tb", "Stromal" = "lung_stro")
+data@meta.data$name = data@active.ident
+
+
+saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/cellchat_labeled_lung_int_merge_sct_filt_tnbc.rds")
+```
+
+# Update object
+```{r}
+data[[]]
+data$sample = factor(data$sample)
+Idents(data) = "phenotype"
+DimPlot(data)
+
+data = UpdateSeuratObject(data)
+data[[]]
+
+table(data$phenotype, data$sample)
+
+Idents(data) = "short"
+
+DimPlot(data)
+
+# data@meta.data$cells = data@active.ident
+# 
+# data@meta.data$short = data@meta.data$cells
+levels(data@meta.data$short)
+levels(Idents(data))
+Idents(data) = data@meta.data$short
+
+```
+
+# Split into separate samples 
+
+```{r}
+# rm(data)
+
+
+Idents(data) = data@meta.data$name
+Untreated = subset(data, idents = 'lung_tb')
+Idents(Untreated) = Untreated@meta.data$short
+
+Stro = subset(data, idents = 'lung_stro')
+Idents(Stro) = Stro@meta.data$short
+
+
+NPneg = subset(data, idents = 'lung_imm')
+Idents(NPneg) = NPneg@meta.data$short
+
+NPpos = subset(data, idents = 'lung_np')
+Idents(NPpos) = NPpos@meta.data$short
+
+Treated = subset(data, idents = c('lung_np', 'lung_imm', 'lung_stro'))
+Treated@meta.data$shortname <- Treated@active.ident
+Idents(Treated) = Treated@meta.data$short
+
+
+
+
+rm(data)
+# BregMarkers = read.csv("C:/Users/lmrad/OneDrive - Michigan Medicine/Documents/Allergy/Bregmarkers.csv", 
+#                          row.names = NULL, stringsAsFactors = FALSE)
+gc()
+```
+
+# Save Sample Seurat Objects 
+```{r}
+saveRDS(Untreated, file = "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/Untreated.rds")
+
+saveRDS(Stro, file = "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/Stro.rds")
+
+saveRDS(NPneg, file = "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/NPneg.rds")
+
+saveRDS(NPpos, file = "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/NPpos.rds")
+
+saveRDS(Treated, file = "~/Documents/Kate/NMMscRNAseq/Data/Cellchat/Treated.rds")
+
+rm(Untreated, Stro, NPneg, NPpos, Treated)
+
+```
+
+# Create CellChat Objects 
+## Per sample basis
+```{r}
+myFiles <- list.files(path = paste0(cellchat.path, "Sample_Objects/"), pattern=".rds")
+# cell = strsplit(myFiles[i], "[.]")[[1]][1]
+
+```
+
+```{r}
+for (i in 1:length(myFiles)) {
+  cell = strsplit(myFiles[i], "[.]")[[1]][1]
+  
+  sample <- readRDS(file = paste0(cellchat.path, cell, ".rds"))
+  DefaultAssay(sample) <- "RNA"
+  sample <- JoinLayers(sample)
+  Idents(sample) = sample@meta.data$short
+  sample = SetIdent(sample, value = sample@meta.data$short)
+  sample@meta.data$short <- droplevels(sample@meta.data$short)
+
+    
+
+
+# sample <- JoinLayers(sample)
+    
+  cellchat_sample <- createCellChat(object = sample, group.by = 'short', assay = "RNA")
+  rm(sample)
+  
+  CellChatDB <- CellChatDB.mouse # use CellChatDB.mouse if running on mouse data
+  showDatabaseCategory(CellChatDB)
+  
+  # use a subset of CellChatDB for cell-cell communication analysis
+  CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling", key = "annotation") # use Secreted Signaling
+
+  # CellChatDB.use <- CellChatDB # simply use the default CellChatDB. We do not suggest to use it in this way because CellChatDB v2 includes "Non-protein Signaling" (i.e., metabolic and synaptic signaling). 
+  # cellchat_sample@DB <- CellChatDB.use
+  
+  # set the used database in the object
+  cellchat_sample@DB <- CellChatDB.use
+  
+  cellchat_sample <- subsetData(cellchat_sample) # This step is necessary even if using the whole database
+  options(future.globals.maxSize = 7000 * 1024^2)
+  future::plan("multisession", workers = 4) # do parallel
+  
+  
+  cellchat_sample <- identifyOverExpressedGenes(cellchat_sample)
+  cellchat_sample <- identifyOverExpressedInteractions(cellchat_sample)
+  
+  cellchat_sample <- computeCommunProb(cellchat_sample, population.size = T) #remove pop.size = F
+  
+  # Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+  cellchat_sample <- filterCommunication(cellchat_sample, min.cells = 10)
+  
+  saveRDS(cellchat_sample, file = paste0(cellchat.path, "cellchat_", cell, ".rds"))
+
+}
+# END LOOP
+```
+
+
+# Now in loop 
+```{r}
+sample = readRDS(file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/Sample_Objects/Untreated.rds")
+
+sample = readRDS(file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/Sample_Objects/Treated.rds")
+
+sample = readRDS(file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/Sample_Objects/Stro.rds")
+
+sample = readRDS(file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/Sample_Objects/NPneg.rds")
+
+sample = readRDS(file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/Sample_Objects/NPpos.rds")
+
+```
+
+
+
+```{r}
+Idents(sample) = sample@meta.data$short
+sample = SetIdent(sample, value = sample@meta.data$short)
+
+sample@meta.data$short <- droplevels(sample@meta.data$short)
+ 
+cellchat_sample <- createCellChat(object = sample, group.by = 'short', assay = "RNA")
+
+rm(sample)
+```
+
+
+
+
+```{r}
+CellChatDB <- CellChatDB.mouse # use CellChatDB.mouse if running on mouse data
+showDatabaseCategory(CellChatDB)
+
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB. We do not suggest to use it in this way because CellChatDB v2 includes "Non-protein Signaling" (i.e., metabolic and synaptic signaling). 
+cellchat_sample@DB <- CellChatDB.use
+```
+
+
+```{r}
+cellchat_sample <- subsetData(cellchat_sample) # This step is necessary even if using the whole database
+options(future.globals.maxSize = 7000 * 1024^2)
+future::plan("multisession", workers = 4) # do parallel
+```
+
+
+```{r}
+cellchat_sample <- identifyOverExpressedGenes(cellchat_sample)
+cellchat_sample <- identifyOverExpressedInteractions(cellchat_sample)
+groupSize
+```
+
+
+```{r}
+cellchat_sample <- computeCommunProb(cellchat_sample, population.size = T) #remove pop.size = F
+
+# Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+cellchat_sample <- filterCommunication(cellchat_sample, min.cells = 10)
+
+```
+
+
+```{r}
+# saveRDS(cellchat_sample, file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/cellchat_PBS_D0.rds")
+# saveRDS(cellchat_sample, file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/cellchat_PBS_D2.rds")
+# saveRDS(cellchat_sample, file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/cellchat_PBS_D7.rds")
+saveRDS(cellchat_sample, file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/cellchat_NP_D2.rds")
+# saveRDS(cellchat_sample, file = "~/Documents/Kate/SCIFlexSeq/Data/CellChat/cellchat_NP_D7.rds")
+```
+

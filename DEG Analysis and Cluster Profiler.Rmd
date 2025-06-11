@@ -1,0 +1,389 @@
+---
+title: "DEG Analysis and Cluster Profiler"
+output: html_document
+date: "2024-06-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(clusterProfiler)
+library(Seurat)
+library(org.Mm.eg.db)
+library(AnnotationHub)
+```
+
+Cell types in data: Neutrophil, Macrophage, recMac, B cell, Endothelial, Unknown 2, NK cell, T cell, Unknown 3, Unknown 4, alvMac, Fibroblast, recMac/moDC, Unknown 5, 4T1
+Cell types of interest: Neutrophil, Macrophage, recMac, NK cell, T cell, alvMac, recMac/moDC, 4T1
+Shortname: lung_tb, lung_imm, lung_stro, lung_np
+
+
+
+# Perform DE Analysis within same cell type across conditions 
+In FindMarkers, ident.2 servers as the control- so positive fold change means it's upregulated in ident.1 compared to ident.2
+FindMarkers - expressed in ident.1 compared to ident.2 
+By default, it identifies positive and negative markers of a single cluster (specified in ident.1), compared to all other cells. FindAllMarkers() automates this process for all clusters, but you can also test groups of clusters vs. each other, or against all cells.
+```{r setup DEGs}
+# Normalize the data
+data <- NormalizeData(data)
+
+# Find DE features between NP+ neutrophil vs NP- neutrophil
+Idents(data) <- "identity"
+```
+
+
+```{r NP+/- Neutrophil DEG}
+np.neutrophil.de.markers <- FindMarkers(data, ident.1 = "lung_np_Neutrophil", ident.2 = "lung_imm_Neutrophil")
+# view results
+head(np.neutrophil.de.markers)
+```
+
+```{r}
+VlnPlot(data, features = c("Ccl5")) + NoLegend()
+```
+
+
+```{r}
+neutrophil.de.markers <- FindMarkers(data, ident.1 = "lung_np_Neutrophil", ident.2 = c("lung_imm_Neutrophil", "lung_tb_Neutrophil"))
+# view results
+head(neutrophil.de.markers)
+```
+
+```{r NP+/- alvMac DEG}
+# Find DE features between NP+ alvMac vs NP- alvMac
+np.alvMac.de.markers <- FindMarkers(data, ident.1 = "lung_np_alvMac", ident.2 = "lung_imm_alvMac")
+# view results
+head(np.alvMac.de.markers)
+```
+
+# recMacs
+## DEG
+```{r NP+/- recMac DEGs}
+# find DE features between NP+ recMacs and NP- recMacs
+np.recMac.de.markers <- FindMarkers(data, ident.1 = "lung_np_recMac", ident.2 = "lung_imm_recMac")
+np.recMac.de.markers[1:10,]
+```
+## ClusterProfiler
+```{r}
+np.recMac.de.markers$gene <- rownames(np.recMac.de.markers)
+genelist <- bitr((np.recMac.de.markers %>% filter(avg_log2FC > 0) %>% dplyr::select(gene))$gene, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = "org.Mm.eg.db")
+
+
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+## Make Heatmap
+```{r}
+heatmap_df <- (subset(data, idents = c("lung_np_recMac", "lung_imm_recMac")))
+
+DoHeatmap(heatmap_df, features = np.recMac.de.markers$gene[1:50])
+```
+
+
+
+# moDCs
+## DEG
+```{r NP+/- recMac DEGs}
+# find DE features between NP+ recMacs and NP- recMacs
+np.moDC.de.markers <- FindMarkers(data, ident.1 = "lung_np_recMac", ident.2 = "lung_imm_recMac")
+np.moDC.de.markers[1:10,]
+```
+## ClusterProfiler
+```{r}
+np.recMac.de.markers$gene <- rownames(np.recMac.de.markers)
+genelist <- bitr((np.recMac.de.markers %>% filter(avg_log2FC > 0) %>% dplyr::select(gene))$gene, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = "org.Mm.eg.db")
+
+
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+## Make Heatmap
+```{r}
+heatmap_df <- (subset(data, idents = c("lung_np_recMac", "lung_imm_recMac")))
+
+DoHeatmap(heatmap_df, features = np.recMac.de.markers$gene[1:50])
+```
+
+
+# Heatmap of top 20 markers per cluster
+this is way too mch data to load
+```{r}
+all.de %>%
+    group_by(cluster) %>%
+    dplyr::filter(avg_log2FC > 1) %>%
+    slice_head(n = 10) %>%
+    ungroup() -> top10
+DoHeatmap(data, features = top10$gene) + NoLegend()
+```
+
+
+# DEGs of all clusters
+run at end of day- matrix of all comparisons 
+```{r}
+# data$celltype.stim <- paste(data$seurat_annotations, data$stim, sep = "_")
+Idents(data) <- "identity"
+all.de <- FindAllMarkers(data, logfc.threshold = 0.2, min.pct = 0.1,  verbose = T)
+head(all.de, n = 10)
+
+write.csv(all.de, file = "~/Documents/Kate/NMMscRNAseq/Results/lung_identity_DEG_all.csv")
+```
+
+```{r}
+all.de %>% filter(cluster == "lung_np_alvMac") 
+```
+
+# Hypothesis Testing
+In FindMarkers, ident.2 servers as the control- so positive fold change means it's upregulated in ident.1 compared to ident.2
+```{r}
+Idents(data) <- data@meta.data$lineage
+
+subgroup <- subset(data, idents = c("Myeloid", "Resident Immune"))
+
+Idents(data) <- data@meta.data$identity
+Idents(subgroup) <- subgroup@meta.data$identity
+```
+
+## Neutrophils
+### NP+ vs NP- Neturophils
+```{r}
+np.neutrophil.de.markers <- FindMarkers(data, ident.1 = "lung_np_Neutrophil", ident.2 = "lung_imm_Neutrophil")
+np.neutrophil.de.markers[1:10,]
+```
+
+
+### NP- vs untreated Neutrophils
+```{r}
+neutrophil.de.markers <- FindMarkers(data, ident.1 = "lung_imm_Neutrophil", ident.2 = "lung_tb_Neutrophil")
+neutrophil.de.markers[1:10,]
+```
+
+
+## alcMAcs
+### NP+ vs NP- alvMacs
+```{r}
+np.alvMac.de.markers <- FindMarkers(data, ident.1 = "lung_np_alvMac", ident.2 = "lung_imm_alvMac")
+np.alvMac.de.markers[1:10,]
+```
+
+### NP- vs untreated alvMacs
+```{r}
+alvMac.de.markers <- FindMarkers(data, ident.1 = "lung_imm_alvMac", ident.2 = "lung_tb_alvMac")
+alvMac.de.markers[1:10,]
+```
+
+## recMacs
+### NP+ vs NP- recMacs
+```{r}
+np.recMac.de.markers <- FindMarkers(data, ident.1 = "lung_np_recMac", ident.2 = "lung_imm_recMac")
+np.recMac.de.markers[1:10,]
+```
+
+### NP- vs untreated recMacs
+```{r}
+recMac.de.markers <- FindMarkers(data, ident.1 = "lung_imm_recMac", ident.2 = "lung_tb_recMac")
+recMac.de.markers[1:10,]
+```
+
+## Antigen Presentation
+### Dot plots of Ag presenting populations
+pull the antigen presentation kegg pathway? 
+```{r}
+
+```
+
+```{r}
+DotPlot(subgroup, 
+        features = c("Hba-a1", "Hba-a2", "Cd80", "Cd86"))
+```
+
+
+# moDC Cluster Profiler
+ident.2 serves as control
+
+### Subset object 
+```{r}
+Idents(subgroup) <- subgroup@meta.data$phenotype
+subgroup <- subset(subgroup, subset = phenotype == "recMac/recMo")
+```
+
+rescale for visualization
+
+```{r}
+# Select the RNA counts slot to be the default assay
+DefaultAssay(subgroup) <- "RNA"
+```
+
+
+loss of genes with scale data because it only runs on variable features normally 
+https://github.com/satijalab/seurat/issues/5334
+```{r}
+# Normalize RNA data for visualization purposes
+subgroup <- NormalizeData(subgroup, verbose = FALSE)
+
+subgroup <- ScaleData(subgroup, assay='RNA', features = rownames(subgroup))
+```
+
+
+
+
+### Generate DEGs
+```{r}
+Idents(subgroup) <- subgroup@meta.data$shortname
+
+# all markers
+recMac.de <- FindAllMarkers(subgroup) %>% group_by(cluster) %>% arrange(desc(abs(avg_log2FC))) %>% slice(1:15)
+# allMac.de %>% group_by(cluster) %>% arrange(desc(abs(avg_log2FC))) %>% slice(1:15)
+
+# allMac NP+ vs NP-
+nppos.v.npneg.recMac.de <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "NP-", verbose = FALSE)
+head(nppos.v.npneg.recMac.de, n = 10)
+
+# allMac NP- vs TB
+npneg.v.tb.recMac.de <- FindMarkers(subgroup, ident.1 = "NP-", ident.2 = "Untreated", verbose = FALSE)
+head(npneg.v.tb.recMac.de, n = 10)
+
+# allMac NP+ vs TB
+nppos.v.tb.recMac.de <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "Untreated", verbose = FALSE)
+head(nppos.v.tb.recMac.de, n = 10)
+```
+### Gene Heatmap
+turn DGE plots into heatmaps
+
+#### > beween groups
+```{r}
+# gene_list <- rbind(nppos.v.npneg.allMac.de[1:10,], 
+#                    np.recMac.de[1:10,],
+#                    alvMac.de[1:10,], 
+#                    np.alvMac.de[1:10,],
+#                    cDC.de[1:10,], 
+#                    np.cDC.de[1:10,])
+
+deg_gene_list <- rownames(rbind(nppos.v.npneg.recMac.de[1:10,], 
+                   npneg.v.tb.recMac.de[1:10,],
+                   nppos.v.tb.recMac.de[1:10,]))
+# deg_gene_list <- rownames(deg_gene_list)
+deg_gene_list <- unique(deg_gene_list)
+```
+
+
+
+
+```{r}
+# issue with indexing for this 
+# dittoHeatmap(subgroup, unique(rownames(deg_gene_list)),
+#     annot.by = c("shortname", "phenotype"), 
+#     order.by = "phenotype")
+# 
+# dittoHeatmap(subgroup, deg_gene_list,
+#     annot.by = c("shortname", "phenotype"), 
+#     order.by = "phenotype")
+```
+
+#### > all comparison
+
+added variable j for indexing plots: DoMulti has name based indexing while DoHeatmap has number based, this is messing up the combining of plots. But now it makes two plots, idk why
+```{r}
+# heatmap of top 15 abs(log2FC) FindAll
+DoMultiBarHeatmap(subgroup, features= recMac.de$gene, assay = 'RNA', layer = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname", additional.group.by = "phenotype",  group.bar=T) + 
+  scale_fill_distiller(palette = "RdYlBu") +
+  guides(color=FALSE) + theme(axis.text.y = element_text(size = 10))
+#cols.use = colors
+
+# order the phenotypes 
+```
+
+```{r}
+# heatmap of top 10 genes from each individual comparison
+DoMultiBarHeatmap(subgroup, features= deg_gene_list, assay = 'RNA', layer = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname",  group.bar=T) + 
+  scale_fill_distiller(palette = "RdYlBu") +
+  guides(color=FALSE) + theme(axis.text.y = element_text(size = 10))
+#cols.use = colors
+
+# order the phenotypes 
+
+DoHeatmap(subgroup, features= deg_gene_list, assay = 'RNA', slot = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname",  group.bar=T) + 
+  scale_fill_distiller(palette = "RdYlBu") +
+  guides(color=F) + theme(axis.text.y = element_text(size = 10))
+```
+
+
+### ClusterProfiler
+
+re-run DGE but with only positive markers 
+```{r}
+Idents(subgroup) <- subgroup@meta.data$shortname
+
+# allMac NP+ vs NP-
+nppos.v.npneg.recMac.de.pos <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "NP-", verbose = FALSE, only.pos = T)
+head(nppos.v.npneg.recMac.de, n = 10)
+
+# allMac NP- vs TB
+npneg.v.tb.recMac.de.pos <- FindMarkers(subgroup, ident.1 = "NP-", ident.2 = "Untreated", verbose = FALSE, only.pos = T)
+head(npneg.v.tb.recMac.de, n = 10)
+
+# allMac NP+ vs TB
+nppos.v.tb.recMac.de.pos <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "Untreated", verbose = FALSE, only.pos = T)
+head(nppos.v.tb.recMac.de, n = 10)
+```
+
+#### > all comparison
+```{r}
+# remove stromal 
+Idents(subgroup) <- "sample"
+subgroup <- subset(subgroup, subset = sample != "Stromal")
+subgroup@meta.data$sample <- subgroup@active.ident
+
+```
+
+
+```{r}
+# prepare gene lists to enter to cluster prof
+Idents(subgroup) <- subgroup@meta.data$sample
+
+
+res_list = prep_clusterProfiler(subgroup, organism = 'mouse')
+
+genelist = res_list[[1]]
+allMac.de.pos = res_list[[2]]
+
+```
+
+```{r}
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+# results <- GOclusterplot@compareClusterResult
+dotplot(GOclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster GO terms" )
+```
+
+```{r}
+KEGGclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichKEGG", org = 'mmu')
+dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "recMac Sub-cluster KEGG terms" )
+```
+
+```{r}
+Pathwayclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichPathway", organism = 'mouse')
+dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "recMac Sub-cluster Pathway terms" )
+```
+
+#### > between groups
+```{r}
+# recMac NP+ vs NP- 
+np.recMac.de <- FindMarkers(subgroup, ident.1 = "lung_np_recMac/recMo", ident.2 = "lung_imm_recMac/recMo", verbose = FALSE)
+head(np.recMac.de, n = 10)
+```
+```{r}
+# recMac treated vs untreated
+recMac.de <- FindMarkers(subgroup, ident.1 = "lung_imm_recMac/recMo", ident.2 = "lung_tb_recMac/recMo", verbose = FALSE)
+head(recMac.de, n = 10)
+```
+
+
+### NP- recMac vs Untreated 
+
+
+
+
+
+
+
+
+

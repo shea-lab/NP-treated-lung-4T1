@@ -1,0 +1,1513 @@
+---
+title: "Figure_Generation"
+output: html_document:
+  fig_crop: no
+date: "2024-05-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+```{r}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(DoMultiBarHeatmap)
+library(RColorBrewer)
+library(org.Mm.eg.db)
+library(clusterProfiler)
+library(dittoSeq)
+```
+
+
+# Outline 
+figures to produce (focusing on immune dynamics)
+Fig 1: general populations
+  1A: identification dot plot 
+  1B: UMAP 
+  1C: population frequency plots
+  1D: comparing conditions/time points 
+  
+Fig 2: macrophage subpopulations 
+  2A: identification dot plot 
+  2B: UMAP 
+  2C: frequency plots 
+  2D: comparing conditions/time points  
+  
+Fig 3: neutrophil subpopulations 
+  3A: identification dot plot 
+  3B: UMAP 
+  3C: frequency plots 
+  3D: comparing conditions/time points 
+  
+Fig 4: monocyte subpopulations 
+  4A: identification dot plot 
+  4B: UMAP
+  4C: frequency plots 
+  4D: comparing conditions/time points 
+  
+Fig 5: general myeloid group subpopulations 
+  5A: identification dot plot 
+  5B: UMAP 
+  5C: frequency plots 
+  5D: comparing conditions/time points 
+  
+Fig 6: microglia subpopulations 
+  6A: identification dot plot 
+  6B: UMAP 
+  6C: frequency plots 
+  6D: comparing conditions/time points 
+  
+  
+For future: 
+- look at vascular subsets 
+- look at stromal subsets
+- neural subsets??
+- signaling 
+
+Notes: use SCT res 0.6 for cluster assignment, but RNA for visualization and differential expression testing 
+
+load the data 
+```{r}
+data <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+```
+
+
+
+
+Order the levels of different metadata layers for logical plotting order
+```{r}
+data$samplename <- data$shortname
+
+Idents(data) <- "shortname"
+data <- RenameIdents(data, 'lung_np' = "NP+", 'lung_imm' = "NP-", 'lung_tb' = "Untreated", 'lung_stro' = "Stromal")
+data@meta.data$shortname <- data@active.ident 
+# data@meta.data$identity <- NULL
+
+data$shortname <- factor(data$shortname, levels = c("Untreated","NP+", "NP-", "Stromal"))
+data$phenotype <- factor(data$phenotype, levels = c("Neutrophil", "IFN Stimulated Neutrophil", "Inflammatory Neutrophil","Macrophage", "recMac", "alvMac", "moDC", "Basophils", "B Cell", "Th1 T Cell", "T Central Mem", "HSP+ T Cell", "NK Cell", "Endothelial", "Fibroblast", "AT2", "4T1"))
+
+data@meta.data$identity <- paste0(data$shortname, "_", data$phenotype)
+
+# "Neutrophil"    "moDC"          "recMac"        "B cell"        "Endothelial"   "Unknown 1"     "Macrophage"    "NK cell"       "T Central Mem"
+# "Unknown 2"     "Th1 T Cell"    "HSP+ T Cell"   "AT2"           "alvMac"        "Fibroblast"    "Basophils" "4T1"
+```
+
+
+```{r}
+saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+```
+
+```{r}
+# Select the RNA counts slot to be the default assay
+DefaultAssay(data) <- "RNA"
+
+# Normalize RNA data for visualization purposes
+data <- NormalizeData(data, verbose = FALSE)
+
+# scale all RNA for heatmaps
+data <- ScaleData(data, assay='RNA', features = rownames(data))
+```
+
+# Figure 1: Populations and Proportions
+
+## set colors
+```{r}
+colors <- c("Neutrophil"="#FB9A98",
+            "Inflammatory Neutrophil"="#E26261",
+            "IFN Stimulated Neutrophil"="#B2496F",
+            "Basophils"= "#DC4405",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Monocyte"="#1C9E77" , 
+            "recMac"="#B1DF8A",
+            "alvMac"="#4CAF4B", 
+            "moDC"= "#5D6DC1",
+            "HSP+ T Cell"= "#377EB8",
+            "T Central Mem"=  "#54B0E3",
+            "Th1 T Cell"="#9baee4",
+            "AT2"="#984EA3",
+            "Endothelial"="#BB9DCC" ,
+            "4T1"= "#F681C0",# "#E72A8A",
+            "Fibroblast"= "#EA9FFF")
+
+
+data$shortname <- factor(data$shortname, levels = c("Untreated","NP+", "NP-", "Stromal"))
+data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Monocyte", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
+```
+
+
+```{r sample number of cells}
+Idents(data) <- "phenotype"
+n_cells <- FetchData(data, vars = c("ident", "shortname")) %>% 
+  dplyr::count(ident, shortname) %>% 
+  tidyr::spread(ident, n)
+
+n_cells
+```
+
+
+## Population Table
+```{r sample-phenotype frequency table}
+# numbers table
+table(data@meta.data$phenotype, data@meta.data$shortname)
+
+dataTable = table(data@meta.data$phenotype, data@meta.data$shortname)
+dataTable = as.data.frame(dataTable)
+```
+
+```{r sample-phenotype frequency table}
+# Frequency table
+prop.table(table(data@meta.data$phenotype, data@meta.data$shortname), margin = 2)
+
+dataTable = prop.table(table(data@meta.data$phenotype, data@meta.data$shortname), margin = 2)
+dataTable = as.data.frame(dataTable)
+```
+
+
+with more time, would be good to alternate colors so it's not a rainbow
+```{r shortname-phenotype frequency bar plot, fig.width=10, fig.asp=0.5}
+levels(dataTable$Var2)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5, color = "black") +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "Lung Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType") +
+  scale_fill_manual(values = colors, name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_phenotype_treatment_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+```{r compare two variables frequency bar plot, fig.width=10, fig.asp=0.5}
+# Frequency table
+prop.table(table(data@meta.data$phenotype, data@meta.data$dpi), margin = 2)
+
+dataTable = prop.table(table(data@meta.data$phenotype, data@meta.data$dpi), margin = 2)
+dataTable = as.data.frame(dataTable)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "data Population Distribution Across DPI") + 
+  scale_fill_discrete(name = "Cell\nType")
+```
+
+```{r stim-phenotype frequency bar plot, fig.width=10, fig.asp=0.5}
+# Frequency table
+prop.table(table(data@meta.data$phenotype, data@meta.data$stim), margin = 2)
+
+dataTable = prop.table(table(data@meta.data$phenotype, data@meta.data$stim), margin = 2)
+dataTable = as.data.frame(dataTable)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "data Population Distribution Across DPI") + 
+  scale_fill_discrete(name = "Cell\nType")
+```
+
+```{r shortname-lineage frequency table}
+# Frequency table
+prop.table(table(data@meta.data$lineage, data@meta.data$shortname), margin = 2)
+
+dataTable = prop.table(table(data@meta.data$lineage, data@meta.data$shortname), margin = 2)
+dataTable = as.data.frame(dataTable)
+```
+
+
+```{r shortname-lineage frequency bar plot}
+levels(dataTable$Var2)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "data Cell Lineage Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Lineage")
+# dev.copy(png, 'v8_1_data_phenotype_treatment_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+
+```
+
+## DimPlot
+```{r}
+Idents(data) <- "phenotype"
+DimPlot(data, label =T, cols = colors)
+```
+
+```{r}
+DimPlot(data, label =T, split.by = "nptreated")
+```
+
+## No Stromal
+```{r}
+# not needed if you load stromal-free macrophage lung_all_macrophage_no_stromal.rds
+Idents(data) <- "shortname"
+data2 <- subset(data, subset = shortname != "Stromal")
+data2@meta.data$shortname <- data2@active.ident
+# subgroup <- subset(subgroup, subset = phenotype != "Fibroblast")
+```
+
+Rename shortname 
+```{r}
+data2$samplename <- data2$shortname
+
+Idents(data2) <- "shortname"
+data2 <- RenameIdents(data2, 'lung_np' = "NP+", 'lung_imm' = "NP-", 'lung_tb' = "Untreated")
+data2@meta.data$shortname <- data2@active.ident 
+# subgroup@meta.data$identity <- NULL
+
+
+```
+
+```{r}
+colors <- c("Neutrophil"="#FB9A98",
+             "Inflammatory Neutrophil"="#E26261",
+            "IFN Stimulated Neutrophil"="#B2496F",
+            "Basophils"= "#DC4405",
+            "NK Cell"="#F29404" ,
+            "B Cell"= "#E2BE02", 
+            "Macrophage"="#1C9E77" , 
+            "recMac"="#B1DF8A",
+            "alvMac"="#4CAF4B", 
+            "moDC"= "#5D6DC1",
+            "HSP+ T Cell"= "#377EB8",
+            "T Central Mem"=  "#54B0E3",
+            "Th1 T Cell"="#9baee4",
+            "AT2"="#984EA3",
+            "Endothelial"="#BB9DCC" ,
+            "4T1"= "#F681C0",# "#E72A8A",
+            "Fibroblast"= "#EA9FFF")
+
+
+data2$shortname <- factor(data2$shortname, levels = c("Untreated","NP+", "NP-"))
+data2$phenotype <- factor(data2$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
+```
+
+
+```{r shortname-lineage frequency table}
+# Frequency table
+prop.table(table(data2@meta.data$phenotype, data2@meta.data$shortname), margin = 2)
+
+dataTable = prop.table(table(data2@meta.data$phenotype, data2@meta.data$shortname), margin = 2)
+dataTable = as.data.frame(dataTable)
+```
+
+
+```{r shortname-lineage frequency bar plot}
+levels(dataTable$Var2)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5, color = "black") +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "Lung Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType") +
+  scale_fill_manual(values = colors, name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_phenotype_treatment_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+
+```
+
+```{r}
+Idents(data2) <- "phenotype"
+DimPlot(data2, label = T, cols = colors)
+```
+
+
+## DotPlot
+
+T cells:                   "Cd3e", 
+B cells:                  "Cd79a", "Ms4a1", "Cd19",  
+Monocyte:                  "Cd300a", "Cd14", "Ccr2",  
+Macrophage:               "Apoe", "Ms4a7", "Cd68",
+Microglia:               "Tmem119", "Trem2", "P2ry12", "Aif1", "Csf1r","Ptgs1",
+Neutrophil:             "S100a9", "S100a8", "Retnlg", "Ly6g",
+Dividing:              "Top2a", "Mki67", 
+Fibroblast:            "Col1a1", "Col6a1", "Dcn", "Pdgfrb", "Ppp1r14a", 
+Endothelial:           "Pecam1", "Kdr", "Flt1", 
+Pericyte:              "Kcnj8", "Higd1b", "Abcc9", "Rgs5", 
+OPC:                   "Lhfpl3", "Tnf", "Igsf21", 
+Oligodendrocyte:       "Mbp", "Mog", 
+Astrocyte:              "Agt", "Slc6a11", "Slc7a10", "Fgfr3",
+Ependymal:               "Cfap126", "Fam183b", "Tekt1",
+DC:                      "Ifitm1", "Cd86", "Siglech", "Klk1"
+
+
+"Neutrophil", "IFN Stimulated Neutrophil", "Inflammatory Neutrophil","Monocyte", "recMac", "alvMac", "moDC", "Basophils", "B cell", "Th1 T Cell", "T Central Mem", "HSP+ T Cell", "NK cell", "Endothelial", "Fibroblast", "AT2", "4T1"
+
+get better fibroblast marker 
+```{r}
+## Plot to save for figure 
+Idents(data) = data@meta.data$phenotype
+# DotPlot(data, features = c("Cd3e", 
+#                             "Cd79a", "Ms4a1", "Cd19",  
+#                             "Cd300a", "Cd14", "Ccr2",  
+#                             "Apoe", "Ms4a7", "Cd68",
+#                             "Tmem119", "Trem2", "P2ry12", "Aif1", "Csf1r","Ptgs1",
+#                             "S100a9", "S100a8", "Retnlg", "Ly6g",
+#                             "Top2a", "Mki67", 
+#                             "Col1a1", "Col6a1", "Dcn", 
+#                             "Pecam1", "Kdr", "Flt1", 
+#                             "Kcnj8", "Higd1b", "Abcc9", "Rgs5", 
+#                             "Lhfpl3", "Tnf", "Igsf21", 
+#                             "Mbp", "Mog", 
+#                             "Agt", "Slc6a11", "Slc7a10", "Fgfr3",
+#                             "Cfap126", "Fam183b", "Tekt1",
+#                             "Ifitm1", "Cd86", "Siglech", "Klk1"
+
+                           # "Cd4", "Ccr5", "Cxcr3", "Tbet", "Ifng", "Tnf", 
+                           # "Ccr4", "Gata3","Il10", 
+                           # "Ccr6", "Irf4", "Il17a", "Il17f", "Il22",
+                           # "Cxcr5", 
+
+# )) + 
+#   RotatedAxis()
+
+cells <- c("Neutrophil", "IFN Stimulated Neutrophil", "Inflammatory Neutrophil","Macrophage", "recMac", "alvMac", "moDC", "Basophils", "B cell", "Th1 T Cell", "T Central Mem", "HSP+ T Cell", "NK cell", "Endothelial", "Fibroblast", "AT2", "4T1")
+
+DotPlot(data, features = c("Krt18", "Epcam","Esr1", "Tubb5", 
+                          "Col1a1", 
+                          "Pecam1",
+                           "Apoa1", "Fgg",
+                           "Cd3e", "Cd4", "Cd8a",
+                           "Hspa1b", 
+                           "Ccr7", "Pdcd1", 
+                           "Gata3", "Icos","Cxcr3",
+                           "Itgax", "H2-Ab1", 
+                           "Cst3", "H2-Aa", "Cd74", "Naaa", "Irf8","H2-DMa",
+                           "Dpp4", "Flt3", "Zbtb46", 
+                           "Itgam", "Cd209a", "Sirpa", "Clec4a4",
+                           "Chil3", "Pparg", "Siglecf", 
+                           "Ccr2", "Fn1", "Vcan",
+                           "Adgre1", "Cd86", "Apoe", 
+                           "Cd19", "Cd79a",
+                           "Klre1", "Gzmb", "Klrg1",
+                           "Cdh1", "Fcer1a", "Il3ra",
+                           "Ly6g", "S100a8", "Mmp9", 
+                           "Ccrl2", "Gadd45b", "Il1r2", "Ppp1r15a", "Marcksl1", "Nfkbiz", "Il1b", "Saa3", "Cd274", "Isg15",
+                           "Retnlg", "Wfdc21", "Ifitm2", "Tspo", "S100a6", "Wfdc17"
+                          )) + RotatedAxis()
+# dev.copy(png, 'v8_1_data_dotplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+# Fig 2: Macrophage Subtypes
+allMac <- saveRDS(subgroup, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage.rds")
+
+```{r}
+subgroup <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage_no_stromal.rds")
+```
+
+## Exclude stromal samples
+```{r}
+# not needed if you load stromal-free macrophage lung_all_macrophage_no_stromal.rds
+
+# subgroup <- subset(subgroup, subset = shortname != "lung_stro")
+# subgroup <- subset(subgroup, subset = phenotype != "Fibroblast")
+```
+
+Rename shortname 
+```{r}
+subgroup$samplename <- subgroup$shortname
+
+Idents(subgroup) <- "shortname"
+subgroup <- RenameIdents(subgroup, 'lung_np' = "NP+", 'lung_imm' = "NP-", 'lung_tb' = "Untreated")
+subgroup@meta.data$shortname <- subgroup@active.ident 
+# subgroup@meta.data$identity <- NULL
+
+
+```
+
+
+Order the levels
+```{r}
+# subgroup$shortname <- factor(subgroup$shortname, levels = c("lung_np", "lung_imm", "lung_stro", "lung_tb"))
+subgroup$shortname <- factor(subgroup$shortname, levels = c("NP+", "NP-", "Untreated"))
+subgroup$phenotype <- factor(subgroup$phenotype, levels = c("recMac/recMo", "alvMac", "cDC", "Proliferating"))
+
+subgroup@meta.data$identity <- paste0(subgroup$shortname, "_", subgroup$phenotype)
+
+# subgroup$identity <- factor(subgroup$identity, levels = c("Neutrophil", "Macrophage", "recMac", "alvMac", "T cell", "B cell", "NK cell", "Endothelial", "Fibroblast", "4T1", "Unknown 1", "Unknown 2", "Unknown 3", "Unknown 4"))
+```
+
+
+```{r}
+# Select the RNA counts slot to be the default assay
+DefaultAssay(subgroup) <- "RNA"
+```
+
+
+```{r}
+# Normalize RNA data for visualization purposes
+subgroup <- NormalizeData(subgroup, verbose = FALSE)
+
+subgroup <- ScaleData(subgroup, assay='RNA', features = rownames(subgroup))
+```
+
+
+
+## Population Table
+```{r}
+Idents(subgroup) <- "phenotype"
+n_cells <- FetchData(subgroup, vars = c("ident", "shortname")) %>% 
+  dplyr::count(ident, shortname) %>% 
+  tidyr::spread(ident, n)
+
+n_cells
+```
+
+## DimPlot
+```{r}
+DimPlot(subgroup, label =T)
+```
+
+## Freq Plot
+```{r}
+# Frequency table
+prop.table(table(subgroup@meta.data$phenotype, subgroup@meta.data$shortname), margin = 2)
+
+dataTable = prop.table(table(subgroup@meta.data$phenotype, subgroup@meta.data$shortname), margin = 2)
+dataTable = as.data.frame(dataTable) %>% filter(Var1 != "Fibroblast")
+# %>% filter(row_number() <= n()-1)
+
+```
+
+```{r shortname-phenotype frequency bar plot, fig.width=10, fig.asp=0.5}
+levels(dataTable$Var2)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5, color = "black") +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "Macrophage Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_phenotype_treatment_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+## Marker Genes
+```{r compare all using table}
+# DC, cDC1, cDC2, migDC, infDC, pDC, recMac, IM, AM
+DotPlot(subgroup, features = c("Dpp4", "Flt3", "Zbtb46", 
+                               "Pecam1", 
+                               "Chil3", "Pparg", "Flt1", "Fabp4", "Fabp5", "Ear1", "Car4", 
+                               "Ccr2", "Cd14", "Il1b", "Apoe", "Mafb", "Ms4a4c")) +
+  
+  RotatedAxis()
+```
+
+
+```{r compare all using table}
+# DC, cDC1, cDC2, migDC, infDC, pDC, recMac, IM, AM
+DotPlot(subgroup, features = c("Dpp4", "Flt3", "Zbtb46", 
+                               "Cd24a", "Itgae", "Xcr1", "Batf3", "Id2", "Irf8", "Tlr3", "Clec9a", "Wdfy4", "Cxcr3", "Rnase6",
+                               "Clec10a", "Ccl17", "Ccl22", "S100a6", "S100a4", "Irf4", "Cd209a", 
+                               "Ccr7", "Ccl5", 
+                               "Ifit1", "Ifit1bl1", "Ifit2", "Ifit", "Rsad2", "Phf11d", 
+                               "Siglech", "Ly6d", "Ccr9", "Cox6a2", "Plac8", "Tcf4", "Bst2",
+                               "Ly6c2", "Ccr2", "Cd14", "Il1b", "Apoe", "Mafb", "Ms4a4c", 
+                               "C1qa", "C1qb", "C1qc", "Pf4", "Mrc1", 
+                               "C5ar1", "Fn1", "Vcan", "Csfr1",
+                               "Chil3", "Pparg", "Flt1","Fabp4", "Fabp5", "Ear1", "Krt79", "Car4")) +
+  
+  RotatedAxis()
+```
+
+
+
+
+## DEG Cluster Profiler
+```{r}
+Idents(subgroup) <- subgroup$phenotype
+pbmc.markers <- FindAllMarkers(subgroup, only.pos = TRUE, min.pct = 0.1, logfc.threshold = 0.25)
+
+pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+##################################################################
+#Subsetting top 100 markers with adjusted p values lower than .05#
+##################################################################
+top100 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 100, wt = avg_log2FC)
+top100pval <- subset(top100, rowSums(top100[5] < 0.05) > 0)
+
+df <- top100pval[,7:6]
+dfsample <- split(df$gene,df$cluster)
+length(dfsample)
+```
+
+
+```{r}
+#The output of length(dfsample) returns how many clusters you have
+#Here there at 9 clusters (0, 1, 2, 3, 4, 5, 6, 7 and 8)
+#I'm sure there's a better way but you have to make a line like below for each cluster
+
+dfsample$`Mature` = bitr(dfsample$`Mature`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Inflammatory` = bitr(dfsample$`Inflammatory`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Unknown 1` = bitr(dfsample$`Unknown 1`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Transitional` = bitr(dfsample$`Transitional`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Unknown 2` = bitr(dfsample$`Unknown 2`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Immature` = bitr(dfsample$`Immature`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Nonclassical Monocytes` = bitr(dfsample$`Nonclassical Monocytes`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Proliferating` = bitr(dfsample$`Proliferating`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`9` = bitr(dfsample$`9`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`10` = bitr(dfsample$`10`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`11` = bitr(dfsample$`11`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`12` = bitr(dfsample$`12`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`13` = bitr(dfsample$`13`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`14` = bitr(dfsample$`14`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+
+#do the same here, a line like below for each cluster
+genelist <- list("Mature" = dfsample$`Mature`$ENTREZID, 
+                 "Inflammatory" = dfsample$`Inflammatory`$ENTREZID,
+                 "Unknown 1" = dfsample$`Unknown 1`$ENTREZID,
+                 "Transitional" = dfsample$`Transitional`$ENTREZID,
+                 "Unknown 2" = dfsample$`Unknown 2`$ENTREZID,
+                 "Immature" = dfsample$`Immature`$ENTREZID,
+                 "Nonclassical Monocytes" = dfsample$`Nonclassical Monocytes`$ENTREZID,
+                 "Proliferating" = dfsample$`Proliferating`$ENTREZID
+                 # "8" = dfsample$`8`$ENTREZID, 
+                 # "9" = dfsample$`9`$ENTREZID,
+                 # "10" = dfsample$`10`$ENTREZID,
+                 # "11" = dfsample$`11`$ENTREZID,
+                 # "12" = dfsample$`12`$ENTREZID,
+                 # "13" = dfsample$`13`$ENTREZID,
+                 # "14" = dfsample$`14`$ENTREZID
+
+)
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+
+
+
+# Fig 3: Neutrophil Subtypes
+neut <- saveRDS(subgroup, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_neutrophil.rds")
+
+```{r}
+subgroup <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_neutrophil.rds")
+```
+
+## Exclude stromal samples
+```{r}
+subgroup <- subset(subgroup, subset = shortname != "lung_stro")
+subgroup <- subset(subgroup, subset = phenotype != "Fibroblast")
+```
+
+Order the levels
+```{r}
+# subgroup$shortname <- factor(data$shortname, levels = c("lung_np", "lung_imm", "lung_stro", "lung_tb"))
+# subgroup$phenotype <- factor(subgroup$phenotype, levels = c("recMac/recMo", "alvMac", "cDC", "Endothelial"))
+```
+
+
+```{r}
+# Select the RNA counts slot to be the default assay
+DefaultAssay(subgroup) <- "RNA"
+```
+
+
+```{r}
+# Normalize RNA data for visualization purposes
+subgroup <- NormalizeData(subgroup, verbose = FALSE)
+```
+
+
+
+## Population Table
+```{r}
+Idents(subgroup) <- "phenotype"
+n_cells <- FetchData(subgroup, vars = c("ident", "shortname")) %>% 
+  dplyr::count(ident, shortname) %>% 
+  tidyr::spread(ident, n)
+
+n_cells
+```
+
+## DimPlot
+```{r}
+DimPlot(subgroup, label =T)
+```
+
+## Freq Plot
+```{r}
+# Frequency table
+prop.table(table(subgroup@meta.data$phenotype, subgroup@meta.data$shortname), margin = 2)
+
+dataTable = prop.table(table(subgroup@meta.data$phenotype, subgroup@meta.data$shortname), margin = 2)
+dataTable = as.data.frame(dataTable) %>% filter(Var1 != "Fibroblast")
+# %>% filter(row_number() <= n()-1)
+
+```
+
+```{r shortname-phenotype frequency bar plot, fig.width=10, fig.asp=0.5}
+levels(dataTable$Var2)
+
+ggplot(dataTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5, color = "black") +
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 14), 
+        axis.text.x = element_text(size = 14, color = "black")) + 
+  labs(x = "Condition", title = "Lung Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_phenotype_treatment_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+## Marker Genes
+```{r compare all using table}
+# DC, cDC1, cDC2, migDC, infDC, pDC, recMac, IM, AM
+DotPlot(subgroup, features = c("Dpp4", "Flt3", "Zbtb46", 
+                               "Pecam1", 
+                               "Chil3", "Pparg", "Flt1", "Fabp4", "Fabp5", "Ear1", "Car4", 
+                               "Ccr2", "Cd14", "Il1b", "Apoe", "Mafb", "Ms4a4c", "Pge2")) +
+  
+  RotatedAxis()
+
+DotPlot(subgroup, features = c("Stmn1", "H2afz", "Ranbp1", "Hmgb2", "Anp32b", "Txn1", "Ran", "Hmgn1", "Nap1l1",
+                               "Eno3", "Ace", "Pglyrp1", "Spn", "Cd300ld", "Stap1", "Adgre4", "Dusp5", "Smc6", "Ceacam1",
+                               "Egr1", "Fos", "Ier2", "Zfp36", "Fgl2", "Txni", "Klf6", "Rsrp1", "Zfp36l2", "Gm2a",
+                               "Lcn2", "Gc100530", "Retnlg", "Wfdc21", "Gapdh", "Ifitm2", "Tspo", "S100a6", "Wfdc17", "S100a8",
+                               "Ngp", "Cd117", "Chil3", "Mmp8", "Ly6c2", "Camp", "Adpgk", "Serpinb1a", "Ceacam10", "Ltf",
+                               "Tnfaip3", "Ccrl2", "Gadd45b", "Il1r2", "Ppp1r15a", "Marcksl1", "Nfkbiz", "Nlrp3", "Nfkbia", "Ets2")) + RotatedAxis()
+```
+
+## neutrophil subtype clusterprofiler 
+```{r}
+Idents(subgroup) <- subgroup$phenotype
+pbmc.markers <- FindAllMarkers(subgroup, only.pos = TRUE, min.pct = 0.1, logfc.threshold = 0.25)
+
+pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+##################################################################
+#Subsetting top 100 markers with adjusted p values lower than .05#
+##################################################################
+top100 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 100, wt = avg_log2FC)
+top100pval <- subset(top100, rowSums(top100[5] < 0.05) > 0)
+
+df <- top100pval[,7:6]
+dfsample <- split(df$gene,df$cluster)
+length(dfsample)
+```
+
+
+```{r}
+#The output of length(dfsample) returns how many clusters you have
+#Here there at 9 clusters (0, 1, 2, 3, 4, 5, 6, 7 and 8)
+#I'm sure there's a better way but you have to make a line like below for each cluster
+
+dfsample$`Mature` = bitr(dfsample$`Mature`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Inflammatory` = bitr(dfsample$`Inflammatory`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Unknown 1` = bitr(dfsample$`Unknown 1`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Transitional` = bitr(dfsample$`Transitional`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Unknown 2` = bitr(dfsample$`Unknown 2`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Immature` = bitr(dfsample$`Immature`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Nonclassical Monocytes` = bitr(dfsample$`Nonclassical Monocytes`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`Proliferating` = bitr(dfsample$`Proliferating`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`9` = bitr(dfsample$`9`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`10` = bitr(dfsample$`10`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`11` = bitr(dfsample$`11`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`12` = bitr(dfsample$`12`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`13` = bitr(dfsample$`13`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`14` = bitr(dfsample$`14`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+
+#do the same here, a line like below for each cluster
+genelist <- list("Mature" = dfsample$`Mature`$ENTREZID, 
+                 "Inflammatory" = dfsample$`Inflammatory`$ENTREZID,
+                 "Unknown 1" = dfsample$`Unknown 1`$ENTREZID,
+                 "Transitional" = dfsample$`Transitional`$ENTREZID,
+                 "Unknown 2" = dfsample$`Unknown 2`$ENTREZID,
+                 "Immature" = dfsample$`Immature`$ENTREZID,
+                 "Nonclassical Monocytes" = dfsample$`Nonclassical Monocytes`$ENTREZID,
+                 "Proliferating" = dfsample$`Proliferating`$ENTREZID
+                 # "8" = dfsample$`8`$ENTREZID, 
+                 # "9" = dfsample$`9`$ENTREZID,
+                 # "10" = dfsample$`10`$ENTREZID,
+                 # "11" = dfsample$`11`$ENTREZID,
+                 # "12" = dfsample$`12`$ENTREZID,
+                 # "13" = dfsample$`13`$ENTREZID,
+                 # "14" = dfsample$`14`$ENTREZID
+
+)
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+
+
+
+```{r compare all using table}
+# DC, cDC1, cDC2, migDC, infDC, pDC, recMac, IM, AM
+DotPlot(subgroup, features = c("Dpp4", "Flt3", "Zbtb46", 
+                               "Cd24a", "Itgae", "Xcr1", "Batf3", "Id2", "Irf8", "Tlr3", "Clec9a", "Wdfy4", "Cxcr3", "Rnase6",
+                               "Clec10a", "Ccl17", "Ccl22", "S100a6", "S100a4", "Irf4", "Cd209a", 
+                               "Ccr7", "Ccl5", 
+                               "Ifit1", "Ifit1bl1", "Ifit2", "Ifit", "Rsad2", "Phf11d", 
+                               "Siglech", "Ly6d", "Ccr9", "Cox6a2", "Plac8", "Tcf4", "Bst2",
+                               "Ly6c2", "Ccr2", "Cd14", "Il1b", "Apoe", "Mafb", "Ms4a4c", 
+                               "C1qa", "C1qb", "C1qc", "Pf4", "Mrc1", 
+                               "C5ar1", "Fn1", "Vcan", "Csfr1",
+                               "Chil3", "Pparg", "Flt1","Fabp4", "Fabp5", "Ear1", "Krt79", "Car4")) +
+  
+  RotatedAxis()
+```
+
+# WORKING ClusterProfilfer
+```{r}
+Idents(subgroup) <- subgroup$SCT_snn_res.0.8
+pbmc.markers <- FindAllMarkers(subgroup, only.pos = TRUE, min.pct = 0.1, logfc.threshold = 0.25)
+
+pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+
+##################################################################
+#Subsetting top 100 markers with adjusted p values lower than .05#
+##################################################################
+top100 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 100, wt = avg_log2FC)
+top100pval <- subset(top100, rowSums(top100[5] < 0.05) > 0)
+
+df <- top100pval[,7:6]
+dfsample <- split(df$gene,df$cluster)
+length(dfsample)
+
+#The output of length(dfsample) returns how many clusters you have
+#Here there at 9 clusters (0, 1, 2, 3, 4, 5, 6, 7 and 8)
+#I'm sure there's a better way but you have to make a line like below for each cluster
+
+dfsample$`0` = bitr(dfsample$`0`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`1` = bitr(dfsample$`1`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`2` = bitr(dfsample$`2`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`3` = bitr(dfsample$`3`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`4` = bitr(dfsample$`4`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`5` = bitr(dfsample$`5`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`6` = bitr(dfsample$`6`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`7` = bitr(dfsample$`7`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`9` = bitr(dfsample$`9`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`10` = bitr(dfsample$`10`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`11` = bitr(dfsample$`11`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`12` = bitr(dfsample$`12`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`13` = bitr(dfsample$`13`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`14` = bitr(dfsample$`14`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+# dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+
+#do the same here, a line like below for each cluster
+genelist <- list("0" = dfsample$`0`$ENTREZID, 
+                 "1" = dfsample$`1`$ENTREZID,
+                 "2" = dfsample$`2`$ENTREZID,
+                 "3" = dfsample$`3`$ENTREZID,
+                 "4" = dfsample$`4`$ENTREZID,
+                 "5" = dfsample$`5`$ENTREZID,
+                 "6" = dfsample$`6`$ENTREZID,
+                 "7" = dfsample$`7`$ENTREZID,
+                 "8" = dfsample$`8`$ENTREZID, 
+                 "9" = dfsample$`9`$ENTREZID,
+                 "10" = dfsample$`10`$ENTREZID,
+                 "11" = dfsample$`11`$ENTREZID,
+                 "12" = dfsample$`12`$ENTREZID,
+                 "13" = dfsample$`13`$ENTREZID,
+                 "14" = dfsample$`14`$ENTREZID
+
+)
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+
+# Neutrophil Subtypes 
+```{r}
+Idents(data) = data@meta.data$phenotype
+cell.subtype = subset(data, idents = 'Neutrophil')
+```
+
+```{r}
+cell.subtype = ScaleData(cell.subtype, verbose = FALSE) # rescale data to reframe neutrophil scale  
+cell.subtype <- FindVariableFeatures(cell.subtype) # find neutrophil specific variable genes
+cell.subtype <- RunPCA(cell.subtype, verbose = FALSE)
+ElbowPlot(cell.subtype) # see where you don't get big returns on variance changes anymore
+```
+
+
+```{r}
+cell.subtype <- FindNeighbors(cell.subtype, reduction = "pca", dims = 1:15) # cluster cells 
+cell.subtype <- FindClusters(cell.subtype, resolution = 0.6) # grouping of similarity (groups of cells)
+
+# run UMAP 
+cell.subtype <- RunUMAP(cell.subtype, dims = 1:15) # group cells by similarity
+DimPlot(cell.subtype, reduction = "umap", label = TRUE) #+ NoLegend()
+# TSNEPlot(neutrophils_tsne)
+```
+
+
+```{r}
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Cd33", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2", 
+                                       "Itga4", "Flt1", "Itgam", "Sell", "Itgax", "Il12b", "Il10", 
+                                       "Icam1", "Cxcr1")) +
+  RotatedAxis()
+```
+
+
+```{r}
+# FindMarkers(cell.subtype, ident.1 = 2, only.pos = TRUE)[1:10,]
+```
+
+
+```{r}
+# ID Panel 
+# Cd33: myeloid, Cd45/Ptprc: hematapoetic marker 
+# Cd44: eosinophil, Cd34: stem/early/late progenitor
+# Cd123/Il3ra: basophil
+# Cd15/Fut4, Cd16/Fcgr3a: neutrophil 
+# Cd11b/Itgam, Cd14: monocyte 
+FeaturePlot(cell.subtype, features = c( "Cd33", "Ptprc", 
+                                            "Cd44", "Cd34", "Il3ra",
+                                            "Fut4", "Fcgr3", "Itgam",
+                                            "Cd14"))
+```
+
+
+```{r}
+# neutrotime paper 
+DotPlot(cell.subtype, features = c("Gngt2", "Gm2a", "Fgl2", 
+                                       "Rsad2", "Isg15", "Stfa2l1", 
+                                       "Ccl6", "Cxcl2", 
+                                       "Mmp8", "Retnlg", "Camp", 
+                                       "Ngp", "Ltf", 
+                                       "Fcnb", "Tuba1b", "Chil3", 
+                                       "Mpo", "Prtn3", "Elane", 
+                                       "Rpl12", "Sox4", "Cd34")) +
+  RotatedAxis()
+```
+
+
+```{r}
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2",  "Ifit3", "Mmp9", "Il1b", "Ly6g",
+                                       "Gngt2", "Gm2a", "Fgl2", 
+                                       "Rsad2", "Isg15", "Stfa2l1", 
+                                       "Ccl6", "Cxcl2", 
+                                       "Mmp8", "Retnlg", "Camp", 
+                                       "Ngp",  "Ltf",
+                                       "Fcnb", "Tuba1b", "Chil3", 
+                                       "Mpo", "Prtn3", "Elane", 
+                                       "Rpl12", "Sox4", "Cd34")) +
+  RotatedAxis()
+```
+According to previous SCI data:
+PMN-1:Cd33, Il1b, Cxcr2, Itga4, Sell
+PMN-2: Ly6g, Ltf, Mmp9, Itgam
+Senescent: Cxcr4, Cxcl2, 
+```{r}
+DotPlot(cell.subtype, features = c("Cd33", "Il1b", "Cxcr2", "Itga4", "Sell",
+                                   "Ly6g", "Ltf", "Mmp9", "Itgam",
+                                   "Cxcr4", "Cxcl2")) +
+  RotatedAxis()
+```
+Biocompare: https://www.biocompare.com/Editorial-Articles/577944-A-Guide-to-Neutrophil-Markers/
+immature, differentiating neutrophils CD15, CD11b, CD16, and CD10, which begin to express
+mature, circulating neutrophils, CD16hi, CXCR2hi, CXCR4low, and CD62Lhi
+
+
+Aged neutrophils are often discussed as a distinct subset because their maturation also leads to changes in effector function. In addition to being morphologically smaller and containing fewer granules, aged neutrophils are reported to be effective in migrating to sites of inflammation. A general phenotype for aged cells includes CD62Llow, CXCR2low, CXCR4hi, CD11bhi. and CD47low. Other markers reported to be associated with aged neutrophils include CD11c, CD24, ICAM1, CD45, and TLR4. Further upregulation of CXCR4 marks neutrophils for senescence, leading them back to the bone marrow for turnover.
+```{r}
+DotPlot(cell.subtype, features = c("Cd33", "Il1b", "Cxcr2", "Itga4", "Sell",
+                                   "Ly6g", "Ltf", "Mmp9", "Itgam",
+                                   "Cxcr4", "Cxcl2")) +
+  RotatedAxis()
+```
+
+
+```{r}
+Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype <- RenameIdents(cell.subtype, '0' = 'Senescent', '1' = 'PMN-1', '2' =
+                                   'PMN-2','3' = 'PMN-2', '4' = 'Senescent')
+
+# cell.subtype <- RenameIdents(cell.subtype, '0' = 'Senescent', '1' = 'PMN-1', '2' = 
+#                                    'PMN-1','3' = 'PMN-2', '4' = 'PMN-2', '5' = 'PMN-2')
+```
+
+
+```{r}
+#Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype@meta.data$subphenotype = cell.subtype@active.ident
+cell.subtype@meta.data$subidentity = paste0(cell.subtype@meta.data$shortname, cell.subtype@meta.data$subphenotype, sep = " ")
+
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "treatment") #+ NoLegend()
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "tissue") #+ NoLegend()
+```
+
+
+```{r}
+prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortname), margin = 2)
+cell.subtype@meta.data$shortnameID = paste(cell.subtype@meta.data$treatment, cell.subtype@meta.data$tissue, sep = " ")
+SubtypeTable = prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortnameID), margin = 2)
+SubtypeTable = as.data.frame(SubtypeTable)
+#DataTable$Var2 = as.factor(with(DataTable, reorder('Control data', 'NP data', 'Control Spleen', 'NP Spleen')))
+```
+
+
+```{r}
+levels(SubtypeTable$Var2)
+SubtypeTable$Var2 = factor(SubtypeTable$Var2, levels(SubtypeTable$Var2)[c(3,1,4,2)])
+levels(SubtypeTable$Var2)
+
+ggplot(SubtypeTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) + 
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 20), 
+        legend.title = element_text(size = 20),
+        axis.text.x = element_text(size = 20, color = "black")) + 
+  labs(x = "Condition", title = "data Neutrophil Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_neutrophil_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+```{r}
+Idents(cell.subtype) = cell.subtype@meta.data$subphenotype
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2")) +
+  RotatedAxis()
+dev.copy(png, 'v8_1_data_neutrophil_dotplot.png', width = 1200, height = 600)
+dev.off()
+
+
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Cd33", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2", 
+                                       "Itga4", "Flt1", "Itgam", "Sell", "Itgax", "Il12b", "Il10", 
+                                       "Icam1", "Cxcr1")) +
+  RotatedAxis()
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "treatment") #+ NoLegend()
+dev.copy(png, 'v8_1_data_neutrophil_treatment_umap.png', width = 1200, height = 600)
+dev.off()
+
+DoHeatmap(subset(cell.subtype), features = cell.subtype.markers[1:5], size = 3)
+
+Idents(cell.subtype) = cell.subtype@meta.data$subidentity
+table(Idents(cell.subtype))
+prop.table(table(Idents(cell.subtype)))
+```
+
+# Microglia Subtypes 
+```{r}
+Idents(data) = data@meta.data$phenotype
+cell.subtype = subset(data, idents = 'Microglia')
+```
+
+```{r}
+cell.subtype = ScaleData(cell.subtype, verbose = FALSE) # rescale data to reframe neutrophil scale  
+cell.subtype <- FindVariableFeatures(cell.subtype) # find neutrophil specific variable genes
+cell.subtype <- RunPCA(cell.subtype, verbose = FALSE)
+ElbowPlot(cell.subtype) # see where you don't get big returns on variance changes anymore
+```
+
+
+```{r}
+cell.subtype <- FindNeighbors(cell.subtype, reduction = "pca", dims = 1:15) # cluster cells 
+cell.subtype <- FindClusters(cell.subtype, resolution = 0.6) # grouping of similarity (groups of cells)
+
+# run UMAP 
+cell.subtype <- RunUMAP(cell.subtype, dims = 1:15) # group cells by similarity
+DimPlot(cell.subtype, reduction = "umap", label = TRUE) #+ NoLegend()
+# TSNEPlot(neutrophils_tsne)
+```
+```{r check alternate cell type markers}
+DotPlot(cell.subtype, features = c("Cd3e", 
+                            "Cd79a", "Ms4a1", "Cd19",  
+                            "Cd300a", "Cd14", "Ccr2",  
+                            "Apoe", "Ms4a7", "Cd68",
+                            "Tmem119", "Trem2", "P2ry12", "Aif1", "Csf1r","Ptgs1",
+                            "S100a9", "S100a8", "Retnlg", "Ly6g",
+                            "Top2a", "Mki67", 
+                            "Col1a1", "Col6a1", "Dcn", 
+                            "Pecam1", "Kdr", "Flt1", 
+                            "Kcnj8", "Higd1b", "Abcc9", "Rgs5", 
+                            "Lhfpl3", "Tnf", "Igsf21", 
+                            "Mbp", "Mog", 
+                            "Agt", "Slc6a11", "Slc7a10", "Fgfr3",
+                            "Cfap126", "Fam183b", "Tekt1",
+                            "Ifitm1", "Cd86", "Siglech", "Klk1"
+)) + 
+  RotatedAxis()
+```
+
+
+```{r}
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Cd33", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2", 
+                                       "Itga4", "Flt1", "Itgam", "Sell", "Itgax", "Il12b", "Il10", 
+                                       "Icam1", "Cxcr1")) +
+  RotatedAxis()
+```
+
+
+```{r join layers to allow findMarkers to run}
+cell.subtype <- JoinLayers(cell.subtype)
+```
+
+cluster 10 
+Cd93 in microglia https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6187214/
+
+
+```{r investigate unknowns with FindMarkers}
+FindMarkers(cell.subtype, ident.1 = 10, only.pos = TRUE)[1:10,]
+```
+
+
+Milich et al microglia 
+homeostatic: P2ry12
+Inflammatory: Igf1
+dividing: Msr1, Cdk1 
+Migrating: Igf1, Msr1
+```{r}
+DotPlot(cell.subtype, features = c("P2ry12", "Igf1", "Msr1", "Cdk1"))
+```
+
+```{r}
+DotPlot(cell.subtype, features = c("P2ry12", "Igf1", "Msr1", "Cdk1", 
+                                   "Cxcl2", "Mmp9", "Il1b"))
+```
+
+```{r}
+Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype <- RenameIdents(cell.subtype, '0' = 'Homeostatic', '1' = 'Homeostatic', '2' =
+                                   'Homeostatic','3' = 'Migrating', '4' = 'Migrating', 
+                             '5' = 'Dividing', '6' = 'Dividing', '7' = 'Homeostatic', 
+                              '8' = 'Homeostatic', '9' = 'Endothelial', '10' = 'Anti-inflammatory',
+                              '11' = 'Homeostatic', '12' = 'Inflammatory')
+
+# cell.subtype <- RenameIdents(cell.subtype, '0' = 'Senescent', '1' = 'PMN-1', '2' = 
+#                                    'PMN-1','3' = 'PMN-2', '4' = 'PMN-2', '5' = 'PMN-2')
+
+cell.subtype@meta.data$subphenotype = cell.subtype@active.ident
+```
+
+
+```{r}
+#Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype@meta.data$subphenotype = cell.subtype@active.ident
+cell.subtype@meta.data$subidentity = paste0(cell.subtype@meta.data$shortname, cell.subtype@meta.data$subphenotype, sep = " ")
+
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "shortname") #+ NoLegend()
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "stim") #+ NoLegend()
+```
+
+
+```{r}
+prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortname), margin = 2)
+# cell.subtype@meta.data$shortnameID = paste(cell.subtype@meta.data$treatment, cell.subtype@meta.data$tissue, sep = " ")
+SubtypeTable = prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortname), margin = 2)
+SubtypeTable = as.data.frame(SubtypeTable)
+#DataTable$Var2 = as.factor(with(DataTable, reorder('Control data', 'NP data', 'Control Spleen', 'NP Spleen')))
+```
+
+
+```{r}
+levels(SubtypeTable$Var2)
+# SubtypeTable$Var2 = factor(SubtypeTable$Var2, levels(SubtypeTable$Var2)[c(3,1,4,2)])
+levels(SubtypeTable$Var2)
+
+ggplot(SubtypeTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) + 
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 20), 
+        legend.title = element_text(size = 20),
+        axis.text.x = element_text(size = 20, color = "black")) + 
+  labs(x = "Condition", title = "Microglia Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_neutrophil_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+
+```{r microglia subtype dotplot}
+DotPlot(cell.subtype, features = c("P2ry12", "Igf1", "Msr1", "Cdk1", 
+                                   "Cxcl2", "Mmp9", "Il1b", 
+                                    "Pecam1", "Top2a", "Mki67", 
+                                   "Arg1")) + RotatedAxis()
+# dev.copy(png, 'v8_1_data_neutrophil_dotplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+```{r}
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Cd33", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2", 
+                                       "Itga4", "Flt1", "Itgam", "Sell", "Itgax", "Il12b", "Il10", 
+                                       "Icam1", "Cxcr1")) +
+  RotatedAxis()
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "treatment") #+ NoLegend()
+dev.copy(png, 'v8_1_data_neutrophil_treatment_umap.png', width = 1200, height = 600)
+dev.off()
+```
+
+
+```{r}
+DoHeatmap(subset(cell.subtype), features = cell.subtype.markers[1:5], size = 3)
+
+Idents(cell.subtype) = cell.subtype@meta.data$subidentity
+table(Idents(cell.subtype))
+prop.table(table(Idents(cell.subtype)))
+```
+
+
+
+
+
+# Macrophage Subtypes 
+```{r create macrophage group}
+Idents(data) = data@meta.data$phenotype
+cell.subtype = subset(data, idents = 'Macrophage')
+```
+
+```{r}
+cell.subtype = ScaleData(cell.subtype, verbose = FALSE) # rescale data to reframe neutrophil scale  
+cell.subtype <- FindVariableFeatures(cell.subtype) # find neutrophil specific variable genes
+cell.subtype <- RunPCA(cell.subtype, verbose = FALSE)
+ElbowPlot(cell.subtype) # see where you don't get big returns on variance changes anymore
+```
+
+
+```{r macrophage UMAP}
+cell.subtype <- FindNeighbors(cell.subtype, reduction = "pca", dims = 1:15) # cluster cells 
+cell.subtype <- FindClusters(cell.subtype, resolution = 0.6) # grouping of similarity (groups of cells)
+
+# run UMAP 
+cell.subtype <- RunUMAP(cell.subtype, dims = 1:15) # group cells by similarity
+DimPlot(cell.subtype, reduction = "umap", label = TRUE) #+ NoLegend()
+# TSNEPlot(neutrophils_tsne)
+```
+
+```{r check alternate cell type markers}
+DotPlot(cell.subtype, features = c("Cd3e", 
+                            "Cd79a", "Ms4a1", "Cd19",  
+                            "Cd300a", "Cd14", "Ccr2",  
+                            "Apoe", "Ms4a7", "Cd68",
+                            "Tmem119", "Trem2", "P2ry12", "Aif1", "Csf1r","Ptgs1",
+                            "S100a9", "S100a8", "Retnlg", "Ly6g",
+                            "Top2a", "Mki67", 
+                            "Col1a1", "Col6a1", "Dcn", 
+                            "Pecam1", "Kdr", "Flt1", 
+                            "Kcnj8", "Higd1b", "Abcc9", "Rgs5", 
+                            "Lhfpl3", "Tnf", "Igsf21", 
+                            "Mbp", "Mog", 
+                            "Agt", "Slc6a11", "Slc7a10", "Fgfr3",
+                            "Cfap126", "Fam183b", "Tekt1",
+                            "Ifitm1", "Cd86", "Siglech", "Klk1"
+)) + 
+  RotatedAxis()
+```
+
+From Sophia's analysis:
+all: Cd86
+M1: Tlr2
+M2a: Arg1, M2b: H2-2a, M2c: , M2d: Vegfb
+```{r}
+DotPlot(cell.subtype, features = c("Tnf", "Isg15", "Nos2", 
+                                 "Arg1", "Retnlb", 
+                                 "Cd86", "H2-Aa", 
+                                 "Tlr8", "Tlr1",
+                                 "Vegfb", "Cd163", 
+                                 "Itgam", "Adgre1")) +
+  RotatedAxis()
+```
+
+```{r}
+
+DotPlot(cell.subtype, features = c("Chil3", "Arg1", "Hmox1", 
+                                   "Apoe", "Cd63")) +
+  RotatedAxis()
+
+```
+Tried markers:
+Il10, Tgfb1, Nos2, 
+```{r}
+DotPlot(cell.subtype, features = c("Chil3", "Arg1", 
+                                   "Il1b", "Tnf",
+                                   "Top2a",
+                                   "Ccr2", "Ccl3"
+                                   )) +
+  RotatedAxis()
+```
+
+
+```{r join layers to allow findMarkers to run}
+cell.subtype <- JoinLayers(cell.subtype)
+```
+
+cluster 10 
+Cd93 in microglia https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6187214/
+
+
+```{r investigate unknowns with FindMarkers}
+FindMarkers(cell.subtype, ident.1 = 10, only.pos = TRUE)[1:10,]
+```
+
+# clusterProfiler to ID subtypes
+https://www.biostars.org/p/438566/#493549
+```{r}
+cell.subtype.markers <- FindAllMarkers(cell.subtype, only.pos = TRUE, min.pct = 0.1, logfc.threshold = 0.25)
+cell.subtype.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
+```
+
+```{r}
+top100 <- cell.subtype.markers %>% group_by(cluster) %>% top_n(n = 100, wt = avg_log2FC)
+top100pval <- subset(top100, rowSums(top100[5] < 0.05) > 0)
+```
+
+```{r}
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("org.Hs.eg.db")
+# BiocManager::install("org.Mm.eg.db")
+# BiocManager::install("AnnotationHub")
+library("clusterProfiler")
+library("org.Hs.eg.db")
+library("org.Mm.eg.db")
+library("AnnotationHub")
+```
+
+
+```{r}
+df <- top100pval[,7:6]
+dfsample <- split(df$gene,df$cluster)
+length(dfsample)
+```
+
+
+```{r}
+#The output of length(dfsample) returns how many clusters you have
+#Here there at 9 clusters (0, 1, 2, 3, 4, 5, 6, 7 and 8)
+#I'm sure there's a better way but you have to make a line like below for each cluster
+
+dfsample$`0` = bitr(dfsample$`0`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`1` = bitr(dfsample$`1`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`2` = bitr(dfsample$`2`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`3` = bitr(dfsample$`3`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`4` = bitr(dfsample$`4`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`5` = bitr(dfsample$`5`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`6` = bitr(dfsample$`6`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`7` = bitr(dfsample$`7`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`8` = bitr(dfsample$`8`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`9` = bitr(dfsample$`9`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`10` = bitr(dfsample$`10`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+dfsample$`11` = bitr(dfsample$`11`, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Mm.eg.db")
+
+
+#do the same here, a line like below for each cluster
+genelist <- list("0" = dfsample$`0`$ENTREZID, 
+                 "1" = dfsample$`1`$ENTREZID,
+                 "2" = dfsample$`2`$ENTREZID,
+                 "3" = dfsample$`3`$ENTREZID,
+                 "4" = dfsample$`4`$ENTREZID,
+                 "5" = dfsample$`5`$ENTREZID,
+                 "6" = dfsample$`6`$ENTREZID,
+                 "7" = dfsample$`7`$ENTREZID,
+                 "8" = dfsample$`8`$ENTREZID,
+                 "9" = dfsample$`9`$ENTREZID,
+                 "10" = dfsample$`10`$ENTREZID,
+                 "11" = dfsample$`11`$ENTREZID
+
+)
+```
+
+
+```{r}
+GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", ont = "BP",OrgDb = "org.Mm.eg.db")
+dotplot(GOclusterplot)
+```
+```{r}
+KEGGclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichKEGG")
+dotplot(KEGGclusterplot)
+```
+
+
+### Label subtypes
+
+```{r label the subtypes}
+Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype <- RenameIdents(cell.subtype, '0' = 'M2', '1' = '', '2' ='',
+                             '3' = '', '4' = 'M2', 
+                             '5' = '', '6' = '', '7' = 'M1', 
+                              '8' = 'Dividing', '9' = '', '10' = '')
+
+# cell.subtype <- RenameIdents(cell.subtype, '0' = 'Senescent', '1' = 'PMN-1', '2' = 
+#                                    'PMN-1','3' = 'PMN-2', '4' = 'PMN-2', '5' = 'PMN-2')
+
+cell.subtype@meta.data$subphenotype = cell.subtype@active.ident
+```
+
+
+```{r}
+#Idents(cell.subtype) = cell.subtype@meta.data$seurat_clusters
+cell.subtype@meta.data$subphenotype = cell.subtype@active.ident
+cell.subtype@meta.data$subidentity = paste0(cell.subtype@meta.data$shortname, cell.subtype@meta.data$subphenotype, sep = " ")
+
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "shortname") #+ NoLegend()
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "stim") #+ NoLegend()
+```
+
+
+```{r}
+prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortname), margin = 2)
+# cell.subtype@meta.data$shortnameID = paste(cell.subtype@meta.data$treatment, cell.subtype@meta.data$tissue, sep = " ")
+SubtypeTable = prop.table(table(cell.subtype@active.ident, cell.subtype@meta.data$shortname), margin = 2)
+SubtypeTable = as.data.frame(SubtypeTable)
+#DataTable$Var2 = as.factor(with(DataTable, reorder('Control data', 'NP data', 'Control Spleen', 'NP Spleen')))
+```
+
+
+```{r}
+levels(SubtypeTable$Var2)
+# SubtypeTable$Var2 = factor(SubtypeTable$Var2, levels(SubtypeTable$Var2)[c(3,1,4,2)])
+levels(SubtypeTable$Var2)
+
+ggplot(SubtypeTable,aes(x=Var2,y=Freq,fill=Var1)) + geom_col(width = 0.5) + 
+  theme(panel.background = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.line = element_line(), 
+        plot.title = element_text(face = "bold", hjust = .5), 
+        legend.position = "bottom", legend.text = element_text(size = 20), 
+        legend.title = element_text(size = 20),
+        axis.text.x = element_text(size = 20, color = "black")) + 
+  labs(x = "Condition", title = "Microglia Population Distribution Across Conditions") + 
+  scale_fill_discrete(name = "Cell\nType")
+# dev.copy(png, 'v8_1_data_neutrophil_frequencyplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+
+```{r macrophage subtype dotplot}
+DotPlot(cell.subtype, features = c()) + RotatedAxis()
+# dev.copy(png, 'v8_1_data_neutrophil_dotplot.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+```{r}
+DotPlot(cell.subtype, features = c("Cd3e", "Ms4a1", "Cd33", "Ly6g", "Cxcr4", "C1qa", "Siglecf", "Fcer1a",
+                                       "Itga2", "Ltf", "Ifit3", "Cxcl2", "Mmp9", "Il1b", "Cxcl1", "Cxcr2", 
+                                       "Itga4", "Flt1", "Itgam", "Sell", "Itgax", "Il12b", "Il10", 
+                                       "Icam1", "Cxcr1")) +
+  RotatedAxis()
+
+DimPlot(cell.subtype, reduction = "umap", label = TRUE, split.by = "treatment") #+ NoLegend()
+# dev.copy(png, 'v8_1_data_neutrophil_treatment_umap.png', width = 1200, height = 600)
+# dev.off()
+```
+
+
+```{r}
+DoHeatmap(subset(cell.subtype), features = cell.subtype.markers[1:5], size = 3)
+
+Idents(cell.subtype) = cell.subtype@meta.data$subidentity
+table(Idents(cell.subtype))
+prop.table(table(Idents(cell.subtype)))
+```
+
+
+
+
+
+# Types of Plots
+seurat visualization vignette: https://satijalab.org/seurat/articles/visualization_vignette#new-additions-to-featureplot
+```{r plot raw counts}
+# you can plot raw counts as well
+VlnPlot(data, features = c("Ptprc", "Pf4"), slot = "counts", log = TRUE)
+```
+```{r plot normalized counts}
+VlnPlot(data, features = c("Ms4a1", "Cd79a"))
+```
+
+```{r UMAP with different gene localization}
+FeaturePlot(data, features = c("Ms4a1", "Gnly", "Cd3e", "Cd14", "Fcer1a", "Fcgr3a", "Lyz", "Ppbp",
+    "Cd8a"))
+```
+```{r basic heatmap}
+pbmc.markers %>%
+    group_by(cluster) %>%
+    dplyr::filter(avg_log2FC > 1) %>%
+    slice_head(n = 10) %>%
+    ungroup() -> top10
+DoHeatmap(pbmc, features = top10$gene) + NoLegend()
+```
+
+## Marker Feature Expression
+
+```{r}
+features <- c("Ccl5", "Il32", "Ptprcap", "Fcgr3a", "Pf4")
+```
+
+
+```{r ridge plot}
+# Ridge plots - from ggridges. Visualize single cell expression distributions in each cluster
+RidgePlot(data, features = features, ncol = 2)
+```
+
+```{r violin plot}
+# Violin plot - Visualize single cell expression distributions in each cluster
+VlnPlot(data, features = features)
+```
+
+```{r feature plot (UMAP)}
+# Feature plot - visualize feature expression in low-dimensional space
+FeaturePlot(data, features = features)
+```
+
+```{r Dot Plot }
+# Dot plots - the size of the dot corresponds to the percentage of cells expressing the
+# feature in each cluster. The color represents the average expression level
+DotPlot(data, features = features) + RotatedAxis()
+```
+
+```{r Heatmap}
+# Single cell heatmap of feature expression
+DoHeatmap(subset(data, downsample = 100), features = features, size = 3)
+```
+
+## Feature Plots 
+
+
+
+
+

@@ -1,0 +1,297 @@
+recMac <- subset(data, idents = c("recMac"))
+saveRDS(recMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_recruited_macrophage.rds")
+
+mac <- subset(data, idents = c("Macrophage"))
+saveRDS(mac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_macrophage.rds")
+
+alvMac <- subset(data, idents = c("alvMac"))
+saveRDS(alvMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_alveolar_macrophage.rds")
+
+allMac <- subset(data, idents = c("Macrophage", "recMac", "alvMac"))
+saveRDS(allMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage.rds")
+
+# Load macrophage objects
+```{r}
+allMac <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage.rds")
+recMac <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_recruited_macrophage.rds")
+alvMac <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_alveolar_macrophage.rds")
+mac <- readRDS("~/Documents/Kate/NMMscRNAseq/Data/lung_macrophage.rds")
+```
+
+
+# Subtype allMyeloid
+```{r}
+subgroup <- allMyeloid
+```
+
+
+```{r}
+subgroup <- SCTransform(subgroup)
+subgroup <- RunPCA(subgroup)
+```
+
+
+```{r}
+subgroup <- FindNeighbors(subgroup, dims = 1:15)
+subgroup <- FindClusters(subgroup)
+subgroup <- RunUMAP(subgroup, dims = 1:15)
+DimPlot(subgroup, reduction = "umap", group.by = c("sample", "seurat_clusters"))
+```
+
+```{r}
+DimPlot(subgroup, label =T)
+```
+
+## ID Myeloid Cell Types
+```{r immune_id, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
+DotPlot(subgroup, features = c("Cd3e", "Cd4", "Cd8a",
+                            "Ncr1", "Klrb1c", "Klre1",
+                            "Cd79a", "Cd19", "Ms4a1", "Iglc3",
+                            "Ighm",
+                            "Itgam",
+                            "Cd33",
+                            "Ly6c2", "Cd14", "Ccr2",
+                            "Smox", "Apoe", "Adgre1",
+                            "Tmem119", "Trem2", "P2ry12",
+                            "Camp", "Retnlg", "Ly6g",
+                            "Cd86", "Siglech", "Klk1",
+                            "Hcrtr2", "Fcer1a", "Il3ra",
+                            "Ccr3", "Siglecf", "Cd44")) + RotatedAxis()
+```
+
+```{r identify myeloid subtypes}
+DotPlot(subgroup, features = c("Adgre1", "Cd14", "Retnlg", "Itgax", "Siglecf", "Cd86", "Cd34"))
+```
+```{r}
+DotPlot(subgroup, features = c("Marco", "Itgax", "Mrc1", "Siglecf", "Ccl3" ,"Car4", "Lyz1", "Siglec1")) + RotatedAxis()
+
+```
+
+
+## Myeloid Subtypes: Biology of Lung Macrophages in Health and Disease
+using Biology of Lung Macrophages in Health and Disease as a reference, check genes from scRNAseq 
+alveolar macrophages (AM) - first line defenders aof alveoli and airwayss
+lung interstitual macrophages (IM) - gatekeepers of vascularture and lung interstitium 
+recruited macrophages (recMacs) - recruited monocytes that become part of the lung macrophage pool, unique transcriptome and function
+
+
+
+
+```{r}
+# Idents(myeloid) <- subgroup@meta.data$SCT_snn_res.0.4
+```
+
+DCs: Cd26, Flt3, Zbtb46
+monocytes: Ly6c2, Ccr2, C5ar1, Fn1, Vcan, Csfr1, 
+IM: Pf4, C1wa, Mafb, C5ar1, Apoe 
+AM: Chil3, Pparg, Fabp4, Fabp5, Ear1, Krt79, Car4
+```{r comapre all }
+DotPlot(subgroup, features = c("Cd26", "Flt3", "Zbtb46", "Ly6c2", "Ccr2", "C5ar1", "Fn1", "Vcan", "Csfr1",
+                               "Chil3", "Pparg", "Fabp4", "Fabp5", "Ear1", "Krt79", "Car4")) +
+  
+  RotatedAxis()
+```
+
+
+```{r alveolar macrophages (AM)}
+DotPlot(subgroup, features = c("Chil3", "Fabp5", "Flt1", "Pparg", "Fapb4", "Siglecf", "Car4", "Ear1", "Krt79")) + RotatedAxis()
+```
+
+```{r interstitial macrophages}
+DotPlot(subgroup, features = c("C1qa", "C1qb", "C1qc", "Pf4", "C5ar1", "Apoe", "Cd14", "Csfr1", "Mafb", "Mrc1"))+ RotatedAxis()
+```
+recruited macrophages
+```{r recMacs}
+DotPlot(subgroup, features = c("Ly6c2", "Ccr2", "Cd14", "Fn1", "Vcan", "Il1b", "S100a6", "S100a4", "Apoe", "Mafb", "C5ar1", "Ms4a4c"))+ RotatedAxis()
+```
+
+```{r cDC1}
+DotPlot(subgroup, features = c("CD24a", "Itgae", "Xcr1", "Batf3", "Cadm1", "Dpp4", "Zbtb46", "Id2", "Flt3", "Irf8", "Tlr3", "Clec9a", "Cst3", "Wdfy4", "Cxcr3", "Rnase6", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r cDC2}
+DotPlot(subgroup, features = c("Cpp4", "Zbtb46","Clec10a", "Ccl17", "Ccl22", "Fabp5", "S100a6", "S100a4", "Flt3", "Irf4", "H2-Ab1", "Cd209a", "Ccr7", "Ccl5"))+ RotatedAxis()
+```
+
+```{r InfcDC2}
+DotPlot(subgroup, features = c("Ifit1", "Ifit1bl1", "Ifit2", "Ifit", "Ifit3b", "Ifi205", "Ifi206", "Rsad2", "Phf11d", "Mx1", "Cmpk2", "Helz2"))+ RotatedAxis()
+```
+
+```{r pDC}
+DotPlot(subgroup, features = c("Siglech", "Ly6d", "Ccr9", "Cox6a2", "Plac8", "Ly6c2", "Tcf3", "Bst2"))+ RotatedAxis()
+```
+
+# Look at markers from McGinnis et al 
+## Main Cell Types
+C1qa, Apoe, C1qb, C1qc, Pf4, Retnla, Cd74, H2-Aa, H2-Ab1, Selenop
+```{r IM}
+DotPlot(subgroup, features = c("C1qa", "Apoe", "C1qb", "C1qc", "Pf4", "Retnla", "Cd74"," H2-Aa", "H2-Ab1", "Selenop")) + RotatedAxis()
+```
+
+
+ Spp1, Chil3, Ear2, Lpl, Fabp1, Ctsd, Ear1, Plet1, Abcg1, Mrc1
+```{r AM}
+DotPlot(subgroup, features = c("Spp1", 'Chil3', "Ear2", "Lpl", "Fabp1", "Ctsd", "Ear1", "Plet1", "Abcg1", "Mrc1")) + RotatedAxis()
+```
+
+S100a9, S100a8, Retnlg, Wfdc17, Ifitm1, Il1b, BC100530, Stfa2l1, Hp
+```{r neut}
+DotPlot(subgroup, features = c("S100a9", "S100a8", "Retnlg", "Wfdc17", "Ifitm1", "Il1b", "BC100530", "Stfa2l1", "Hp")) + RotatedAxis()
+
+```
+
+Fn1, Plac8, Lyz2, S100a4, Ifitm3, F13a1, Ms4a6c, Thbs1, Ifi27l2a, Ly6c2
+```{r classical mon}
+DotPlot(subgroup, features = c("Fn1", "Plac8", "Lyz2", "S100a4", "Ifitm3", "F13a1", "Ms4a6c", "Thbs1", "Ifi27l2a", 'Ly6c2')) + RotatedAxis()
+
+```
+
+Plac8, Ifitm3, Gngt2, S100a4, Ms4a6c, Cd74, Apoe, Ifi27l2a, H2-Ab1, Lyz2
+```{r intermediate mon}
+DotPlot(subgroup, features = c("Plac8", "Ifitm3", "Gngt2", "S100a4", "Ms4a6c", "Cd74", "Apoe", "Ifi27l2a", "H2-Ab1", "Lyz2")) + RotatedAxis()
+
+```
+
+Gngt2, Pou2f2, Ace, Ifitm3, Apoe, Plac8, Stap1, Sat1, Clec4a3, Spn
+```{r nonclassical mon}
+DotPlot(subgroup, features = c("Gngt2", "Pou2f2", "Ace", "Ifitm3", "Apoe", "Plac8", "Stap1", "Sat1", "Clec4a3", "Spn")) + RotatedAxis()
+
+```
+
+Cst3, H2-Ab1, H2-Aa, Cd74, Naaa, Irf8, Plbd1, Tbc1d4, H2-DMa, Cd207
+```{r cDC1}
+DotPlot(subgroup, features = c("Cst3", "H2-Ab1","H2-Aa", "Cd74", "Naaa", "Irf8", "Plbd1", "Tbc1d4", "H2-DMa", "Cd207")) + RotatedAxis()
+
+```
+
+
+H2-Ab1, Cd74, H2-Aa, Cst3, Mgl2, Ccl17, Tnip3, Cd209a, Mt1, Tmem176a
+```{r cDC2}
+DotPlot(subgroup, features = c("H2-Ab1", "Cd74", "H2-Aa", "Cst3", "Mgl2", "Ccl17", "Tnip3", "Cd209a", "Mt1", "Tmem176a")) + RotatedAxis()
+
+```
+
+Bst2, Siglech, Tcf4, Irf8, Ctsl, Klk1, Cd209d, Atp1b1, Rnase6, Cox6a2 
+```{r pDC}
+DotPlot(subgroup, features = c("Bst2", "Siglech", "Tcf4", "Irf8", "Ctsl", "Klk1", "Cd209d", "Atp1b1", "Rnase6", "Cox6a2" )) + RotatedAxis()
+
+```
+
+Ccl5, Ccl22, Fscn1, Ccl17, Basp1, Ccr7, Tbc1d4, Il12b, Rgs1, Tmem123
+```{r Ccr7 DC}
+DotPlot(subgroup, features = c("Ccl5", "Ccl22", "Fscn1", "Ccl17", "Basp1", "Ccr7", "Tbc1d4", "Il12b", "Rgs1", "Tmem123")) + RotatedAxis()
+
+```
+
+ Hist1h1b, Stmn1, Top2a, Mki67, Tubb5, Pclaf, Tuba1b, H2afz, Hist1h4d
+```{r proliferative}
+DotPlot(subgroup, features = c( "Hist1h1b", "Stmn1", "Top2a", "Mki67", "Tubb5", "Pclaf", "Tuba1b", "H2afz", "Hist1h4d")) + RotatedAxis()
+
+```
+
+
+## Functional Subtypes
+Cell Type	Marker Genes
+IM Antigen	Cd74, H2-Ab1, H2-Aa, Cd52, H2-DMb1, Ccr2, H2-DMa, Rgs1, H2-Eb1, Plbd1
+IM Mrc1	Selenop, Pf4, Maf, Mrc1, Wwp1, Apoe, Ninj1, Stab1, Cfh, Ly6e
+IM Crip1	Tppp3, Crip1, Vim, S100a6, S100a10, Lmna, S100a4, Emp1, Lgals3, Lsp1
+IM Proliferative	Stmn1, H2afz, Ranbp1, Hmgb2, Anp32b, Txn1, Ran, Gapdh, Hmgn1, Nap1l1
+AM Homeostatic	Txnip, Rsrp1, Tsc22d3, Cdc42ep3, Abcg1, Tyrobp, Rgs1, Reep5, Rgs2, Mpc2
+AM Inflammatory	Tnf, Nfkbiz, Tnfaip3, Rasgef1b, Nlrp3, Ccrl2, Il1b, Rel, Nr4a1, Malt1
+AM Lipid	Gpnmb, Ctsb, Lgals3, Ctsk, Ccl6, Cd36, Vat1, Ctsl, Gpr137b, Wfdc17 
+AM Allergy	Ang5, Ang4, AY036118, Cst3, Fcer1g, Ear1, Cyba, Ear2, Lyz2, Gm42418
+AM Antigen	H2-Aa, H2-Ab1, Cd74, H2-DMb1, Epcam, H2-DMa, Fn1, Cd52, Pilra, Osm
+AM Mt	Mt2, Mt1, Prdx1, Ftl1, Lipa,  Hmox1, Creg1, Blvrb, Gstm1, Ctsb
+AM IFN	Isg15, Ifih1, Peli1, Ly6e, Cybb, Samhd1, Sppl2a, Cd300lf, 1600014C10Rik, Selenow 
+AM Proliferative	Cbx3, Dek, Hmgb2, Tubb5, Anp32b, H2afz, Ptma, Ran, Tuba1b, Nap1l1
+
+```{r IM Antigen}
+DotPlot(subgroup, features = c("Cd74", "H2-Ab1", "H2-Aa", "Cd52", "H2-DMb1", "Ccr2", "H2-DMa", "Rgs1", "H2-Eb1", "Plbd1")) + RotatedAxis()
+```
+
+IM Mrc1+	Selenop, Pf4, Maf, Mrc1, Wwp1, Apoe, Ninj1, Stab1, Cfh, Ly6e
+```{r}
+DotPlot(subgroup, features = c("Selenop", "Pf4", "Maf", "Mrc1", "Wwp1", "Apoe", "Ninj1", "Stab1", "Cfh", "Ly6e")) + RotatedAxis()
+
+```
+
+IM Crip1+	Tppp3, Crip1, Vim, S100a6, S100a10, Lmna, S100a4, Emp1, Lgals3, Lsp1
+```{r}
+DotPlot(subgroup, features = c("Tppp3", 'Crip1', "Vim", "S100a6", "S100a10", "Lmna", "S100a4", "Emp1", "Lgals3", "Lsp1")) + RotatedAxis()
+```
+
+IM Proliferative	Stmn1, H2afz, Ranbp1, Hmgb2, Anp32b, Txn1, Ran, Gapdh, Hmgn1, Nap1l1
+```{r}
+DotPlot(subgroup, features = c("Stmn1", "H2afz", "Ranbp1", "Hmgb2", "Anp32b", "Txn1", "Ran", "Gapdh", "Hmgn1", "Nap1l1")) + RotatedAxis()
+```
+
+AM Homeostatic	Txnip, Rsrp1, Tsc22d3, Cdc42ep3, Abcg1, Tyrobp, Rgs1, Reep5, Rgs2, Mpc2
+```{r}
+DotPlot(subgroup, features = c("Txnip", "Rsrp1", "Tsc22d3", 'Cdc42ep3', "Abcg1", "Tyrobp", "Rgs1", "Reep5", "Rgs2", "Mpc2")) + RotatedAxis()
+```
+
+AM Inflammatory	Tnf, Nfkbiz, Tnfaip3, Rasgef1b, Nlrp3, Ccrl2, Il1b, Rel, Nr4a1, Malt1
+```{r}
+DotPlot(subgroup, features = c("Tnf", "Nfkbiz", "Tnfaip3", "Rasgef1b", "Nlrp3", "Ccrl2", "Il1b", "Rel", "Nr4a1", "Malt1")) + RotatedAxis()
+```
+
+AM Lipid	Gpnmb, Ctsb, Lgals3, Ctsk, Ccl6, Cd36, Vat1, Ctsl, Gpr137b, Wfdc17 
+```{r}
+DotPlot(subgroup, features = c("Gpnmb", "Ctsb", "Lgals3", "Ctsk", "Ccl6", "Cd36", "Vat1", "Ctsl", "Gpr137b", "Wfdc17" )) + RotatedAxis()
+```
+
+AM Allergy	Ang5, Ang4, AY036118, Cst3, Fcer1g, Ear1, Cyba, Ear2, Lyz2, Gm42418
+```{r}
+DotPlot(subgroup, features = c("Ang5", "Ang4", "AY036118", "Cst3", "Fcer1g", "Ear1", "Cyba", "Ear2", "Lyz2", "Gm42418")) + RotatedAxis()
+```
+
+AM Antigen	H2-Aa, H2-Ab1, Cd74, H2-DMb1, Epcam, H2-DMa, Fn1, Cd52, Pilra, Osm
+```{r}
+DotPlot(subgroup, features = c("H2-Aa", "H2-Ab1", "Cd74", "H2-DMb1", "Epcam", "H2-DMa", "Fn1", "Cd52", "Pilra", "Osm")) + RotatedAxis()
+```
+
+AM Mt	Mt2, Mt1, Prdx1, Ftl1, Lipa,  Hmox1, Creg1, Blvrb, Gstm1, Ctsb
+```{r}
+DotPlot(subgroup, features = c("Mt2", "Mt1", "Prdx1", "Ftl1", "Lipa",  "Hmox1", "Creg1", "Blvrb", "Gstm1", "Ctsb")) + RotatedAxis()
+```
+
+AM IFN	Isg15, Ifih1, Peli1, Ly6e, Cybb, Samhd1, Sppl2a, Cd300lf, 1600014C10Rik, Selenow 
+```{r}
+DotPlot(subgroup, features = c("Isg15", "Ifih1", "Peli1", "Ly6e", "Cybb", "Samhd1", "Sppl2a", "Cd300lf", "1600014C10Rik", "Selenow" )) + RotatedAxis()
+```
+
+AM Proliferative	Cbx3, Dek, Hmgb2, Tubb5, Anp32b, H2afz, Ptma, Ran, Tuba1b, Nap1l1
+```{r}
+DotPlot(subgroup, features = c("Cbx3", "Dek", "Hmgb2", "Tubb5", "Anp32b", "H2afz", "Ptma", "Ran", "Tuba1b", "Nap1l1")) + RotatedAxis()
+```
+
+
+## look at unknown clusters 
+```{r cluster 17 unknown}
+FindMarkers(subgroup, ident.1 = 17, only.pos = TRUE)[1:10,]
+```
+
+```{r}
+cluster0_conserved_markers <- FindConservedMarkers(data,
+                     ident.1 = 'Neutrophil',
+                     grouping.var = "shortname",
+                     only.pos = TRUE,
+		     min.diff.pct = 0.25,
+                     min.pct = 0.25,
+		     logfc.threshold = 0.25)
+
+```
+
+## Name myeloid clusters 
+```{r name myeloid clusters}
+Idents(subgroup)  <- data@meta.data$SCT_snn_res.0.6
+data <- RenameIdents(data, '0' = 'Neutrophil', '1' = 'Neutrophil', '2' = 'Macrophage', '3' =
+                        'Unkown 1', '4' = 'Neutrophil', '5' = 'B cell',
+                      '6' = 'Endothelial', '7' = 'Unknown 2', '8' = 'Macrophage', '9' = 'NK cell',
+                      '10' = 'Neutrophil', '11' = 'T cell', '12' = 'Neutrophil', '13' = 'Endothelail', 
+                      '14' = 'Neutrophil', '15' = 'Endothelial', '16' = 'Unknown 3', '17' = 'Neutrophil', 
+                      '18' = 'Alveolar macrophages', '19' = 'T cell', '20' = 'Neutrophil', '21' = 'Unknown 4')
+data@meta.data$phenotype = data@active.ident
+
+```
+

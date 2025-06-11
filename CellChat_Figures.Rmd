@@ -1,0 +1,1420 @@
+---
+title: "CellChat_Figures"
+author: "Kate Griffin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(CellChat)
+library(patchwork)
+library(Seurat)
+library(ComplexHeatmap)
+
+# options(future.globals.maxSize = 7000 * 1024^2)
+# future::plan("multisession", workers = 4) # do parallel
+```
+
+# Load Data
+merged data sets
+```{r}
+cellchat2 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_merged_PBS2_NP2.rds")
+cellchat7 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_merged_PBS7_NP7.rds")
+cellchat_PBS <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_merged_D0_PBS7.rds")
+cellchat_NP <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_merged_D0_NP7.rds")
+```
+
+single data sets
+```{r}
+cellchat_D0 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_PBS_D0.rds")
+cellchat_PBS2 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_PBS_D2.rds")
+cellchat_NP2 <-readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_NP_D2.rds")
+cellchat_PBS7 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_PBS_D7.rds")
+cellchat_NP7 <- readRDS(file = "~/SCIFlexSeq/Data/Cellchat/cellchat_NP_D7.rds")
+
+```
+
+```{r}
+object.list2 <- list(PBS = cellchat_PBS2, NP = cellchat_NP2)
+object.list7 <- list(PBS = cellchat_PBS7, NP = cellchat_NP7)
+object.list_pbs <- list(D0 = cellchat_D0, D7_PBS = cellchat_PBS7)
+object.list_np <- list(D0 = cellchat_D0, D7_NP = cellchat_NP7)
+
+```
+
+
+
+# D0 to D7 Signaling Heatmaps
+```{r d0 to d7 PBS heatmap}
+gg1 <- netVisual_heatmap(cellchat_PBS)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat_PBS, measure = "weight")
+#> Do heatmap based on a merged object
+gg1 + gg2
+```
+```{r d0 to d7 NP heatmap}
+gg3 <- netVisual_heatmap(cellchat_NP)
+#> Do heatmap based on a merged object
+gg4 <- netVisual_heatmap(cellchat_NP, measure = "weight")
+#> Do heatmap based on a merged object
+gg3 + gg4
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D0toD7_PBS_NP_Heatmap.pdf", 
+    width = 8, 
+    height = 5)
+gg1 + gg3
+dev.off()
+```
+
+
+# Monocytes and Neutrophils outgoing pathways
+```{r}
+# netAnalysis_river(cellchat_NP7, pattern = "outgoing")
+# PBS is squares
+h1 = netAnalysis_dot(cellchat_NP2, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 21)
+h2 = netAnalysis_dot(cellchat_NP7, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 21)
+h3 = netAnalysis_dot(cellchat_PBS2, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 22)
+h4 = netAnalysis_dot(cellchat_PBS7, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 22)
+
+patchwork::wrap_plots(h3, h1, nrow=2)
+patchwork::wrap_plots(h4,h2, nrow=2)
+
+# dev.off()
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_Outgoing_Signal_D2_Dot.pdf", 
+    width = 16, 
+    height = 4)
+patchwork::wrap_plots(h3, h1, nrow=2)
+dev.off()
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_Outgoing_Signal_D7_Dot.pdf", 
+    width = 16, 
+    height = 4)
+patchwork::wrap_plots(h4,h2, nrow=2)
+dev.off()
+```
+
+# Heatmap all signaling
+```{r}
+library(ComplexHeatmap)
+ # D2 outgoing signal pattern heatmaps PBS vs NP
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list2[[i]]@netP$pathways, object.list2[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list2[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list2)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list2[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list2)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+```{r}
+ # D7 outgoing signal pattern heatmaps PBS vs NP
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list7[[i]]@netP$pathways, object.list7[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list7[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list7)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list7[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list7)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+# Heatmap Specific Pathways
+```{r}
+pathways.show <- c("VWF", "Demosterol", "LIGHT", "PERIOSTIN", "PARs", "SEMA5", "MMP", 
+                   "L1CAM", "PVR", "ADGRB", "CDH5", "VEGF", "JAM", "APP", "TNF", "LAMININ", "COLLAGEN"
+)
+
+# combining all the identified signaling pathways from different datasets 
+# pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+
+object.list <- object.list7
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/CellChat_D7_signaling_patterns_specific_paths_all.pdf",width = 8, height = 6)
+i=1
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+dev.off()
+```
+
+```{r}
+pathways.show <- c("VWF", "Demosterol", "LIGHT", "PERIOSTIN", "PARs", "SEMA5", "MMP", 
+                   "L1CAM", "PVR", "ADGRB", "CDH5", "VEGF", "JAM", "APP", "TNF", "LAMININ", "COLLAGEN"
+)
+
+# combining all the identified signaling pathways from different datasets 
+# pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+
+object.list <- object.list2
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/CellChat_D2_signaling_patterns_specific_paths_all.pdf",width = 8, height = 6)
+i=1
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+dev.off()
+```
+
+# 2D Plot Source and Targets
+```{r}
+num.link <- sapply(object.list2, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list2)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list2[[i]], title = names(object.list2)[i], weight.MinMax = weight.MinMax)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+patchwork::wrap_plots(plots = gg)
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Incoming_Outgoing_Scatter_D2.pdf", 
+    height = 5, width = 12)
+patchwork::wrap_plots(plots = gg)
+dev.off()
+```
+
+```{r}
+num.link <- sapply(object.list7, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list7)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list7[[i]], title = names(object.list7)[i], weight.MinMax = weight.MinMax)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+patchwork::wrap_plots(plots = gg)
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Incoming_Outgoing_Scatter_D7.pdf", 
+    height = 5, width = 12)
+patchwork::wrap_plots(plots = gg)
+dev.off()
+```
+
+# DotPlots
+## M+N to Endo
+```{r}
+levels(cellchat2@meta$phenotype)
+levels(cellchat7@meta$phenotype)
+```
+
+
+```{r}
+# from: mon (3) neut (7)
+# to: endo (2)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1 <- netVisual_bubble(cellchat2, sources.use = c(3,7), targets.use = c(2),  comparison = c(1, 2), angle.x = 45)
+gg2 <- netVisual_bubble(cellchat7, sources.use = c(3,7), targets.use = c(2),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+# dev.off()
+```
+
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_to_Endo_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+
+
+## M+N to microglia
+```{r}
+# from: mon (3) neut (7)
+# to: endo (2)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Micro_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1 <- netVisual_bubble(cellchat2, sources.use = c(3,7), targets.use = c(1),  comparison = c(1, 2), angle.x = 45)
+gg2<- netVisual_bubble(cellchat7, sources.use = c(3,7), targets.use = c(1),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_to_Micro_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+
+## M+N to stromal
+```{r}
+# from: mon (3) neut (7)
+# to: stromal (5), pericyte (6), fibroblast (13)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1<- netVisual_bubble(cellchat2, sources.use = c(3,7), targets.use = c(5),  comparison = c(1, 2), angle.x = 45)
+gg2<-netVisual_bubble(cellchat7, sources.use = c(3,7), targets.use = c(5),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_to_Stro_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+## M+N to fibroblast
+```{r}
+# from: mon (3) neut (7)
+# to: stromal (5), pericyte (6), fibroblast (10)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1<- netVisual_bubble(cellchat2, sources.use = c(3,7), targets.use = c(10),  comparison = c(1, 2), angle.x = 45)
+gg2<-netVisual_bubble(cellchat7, sources.use = c(3,7), targets.use = c(10),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_to_Fib_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+## M+N to pericyte
+```{r}
+# from: mon (3) neut (7)
+# to: stromal (5), pericyte (6), fibroblast (13)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1<- netVisual_bubble(cellchat2, sources.use = c(3,7), targets.use = c(6),  comparison = c(1, 2), angle.x = 45)
+gg2<- netVisual_bubble(cellchat7, sources.use = c(3,7), targets.use = c(6),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/MonNeut_to_Peri_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+## to M
+```{r}
+# from: mon (3) neut (7)
+# to: stromal (5), pericyte (6), fibroblast (13)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1<- netVisual_bubble(cellchat2, #sources.use = c(3,7), 
+                       targets.use = c(3),  comparison = c(1, 2), angle.x = 45)
+gg2<- netVisual_bubble(cellchat7, #sources.use = c(3,7), 
+                       targets.use = c(3),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/All_to_Mon_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+## to N
+```{r}
+# from: mon (3) neut (7)
+# to: stromal (5), pericyte (6), fibroblast (13)
+# cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_MonNeut_to_Endo_LR_Dotplot.pdf",width = 8, height = 14)
+
+gg1<- netVisual_bubble(cellchat2, #sources.use = c(3,7), 
+                       targets.use = c(7),  comparison = c(1, 2), angle.x = 45)
+gg2<- netVisual_bubble(cellchat7, #sources.use = c(3,7), 
+                       targets.use = c(7),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+# dev.off()
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/All_to_Neut_Dot.pdf")
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+## Outgoing from Endo
+
+```{r}
+# from: mon (3) neut (7)
+# to: endo (2)
+cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_Endo_Outgoing_LR_Dotplot.pdf",width = 10, height = 18)
+
+gg1 <- netVisual_bubble(cellchat2, sources.use = c(2), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+gg2 <- netVisual_bubble(cellchat7, sources.use = c(2), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+dev.off()
+```
+
+## Outgoing from Micro
+```{r}
+# from: mon (3) neut (7)
+# to: endo (2)
+cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_Micro_Outgoing_LR_Dotplot.pdf",width = 10, height = 18)
+
+gg1 <- netVisual_bubble(cellchat2, sources.use = c(1), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+gg2 <- netVisual_bubble(cellchat7, sources.use = c(1), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+dev.off()
+```
+
+## Outgoing from Fibro 
+```{r}
+# from: mon (3) neut (7)
+# # to: endo (2)
+cairo_pdf(file = "~/SCIFlexSeq/Figures/Cellchat/D2_Stro_Outgoing_LR_Dotplot.pdf",width = 12, height = 30)
+
+gg1 <- netVisual_bubble(cellchat2, sources.use = c(5,10), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+gg2 <- netVisual_bubble(cellchat7, sources.use = c(5,10), targets.use = c(1,2,3,5,7,10),  comparison = c(1, 2), angle.x = 45)
+#> Comparing communications on a merged object
+patchwork::wrap_plots(plots = list(gg1,gg2))
+
+dev.off()
+```
+
+# Scatter Plots 
+11.65 x 4.17 inches
+## M+N
+```{r}
+gg1 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Mon", title = "Signaling Changes in Monocytes, D2")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg2 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Mon", title = "Signaling Changes in Monocytes, D7")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Monocyte_Scatter.pdf", width = 11.65, height = 4.17)
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+```{r}
+gg3 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Neut", title = "Signaling Changes in Neutrophils, D2")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg4 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Neut", title = "Signaling Changes in Neutrophils, D7")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Neutrophil_Scatter.pdf", width =11.8, height = 3.8)
+patchwork::wrap_plots(plots = list(gg3,gg4))
+dev.off()
+```
+## Endo + Micro
+```{r}
+gg1 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Endo")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg2 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Endo")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Endothelial_Scatter.pdf", width =11.5, height = 3.59)
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+```{r}
+gg3 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Micro")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg4 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Micro")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Microglia_Scatter.pdf", width = 11.88, height = 3.59)
+patchwork::wrap_plots(plots = list(gg3,gg4))
+dev.off()
+# patchwork::wrap_plots(plots = list(gg3,gg4))
+```
+
+## Fib + Stro
+```{r}
+gg1 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Fib")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg2 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Fib")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+# patchwork::wrap_plots(plots = list(gg1,gg2))
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Fibroblast_Scatter.pdf", width =11.88, height = 3.59)
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+
+```{r}
+gg3 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Stro")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg4 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Stro")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+# patchwork::wrap_plots(plots = list(gg3,gg4))
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Stromal_Scatter.pdf", width = 11.88, height = 3.59)
+patchwork::wrap_plots(plots = list(gg3,gg4))
+dev.off()
+
+```
+## Peri
+```{r}
+gg3 <- netAnalysis_signalingChanges_scatter(cellchat2, idents.use = "Peri")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0
+#> The following `from` values were not present in `x`: 0, -1
+gg4 <- netAnalysis_signalingChanges_scatter(cellchat7, idents.use = "Peri")
+#> Visualizing differential outgoing and incoming signaling changes from NL to LS
+#> The following `from` values were not present in `x`: 0, 2
+#> The following `from` values were not present in `x`: 0, -1
+# patchwork::wrap_plots(plots = list(gg3,gg4))
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Pericyte_Scatter.pdf", width = 11.88, height = 3.59)
+patchwork::wrap_plots(plots = list(gg3,gg4))
+dev.off()
+```
+# List all active pathways 
+```{r}
+# cellchat_NP2@netP$pathways
+unique(unique(cellchat_NP2@netP$pathways,cellchat_PBS2@netP$pathways),
+       unique(cellchat_NP7@netP$pathways, cellchat_PBS7@netP$pathways))
+
+intersect(cellchat_NP2@netP$pathways,cellchat_NP7@netP$pathways)
+intersect(cellchat_PBS2@netP$pathways,cellchat_PBS7@netP$pathways)
+
+setdiff(cellchat_NP2@netP$pathways,cellchat_PBS2@netP$pathways)
+setdiff(cellchat_NP7@netP$pathways,cellchat_PBS7@netP$pathways)
+```
+
+# Check which pathways are different
+```{r}
+# day 2
+object.list <- object.list2
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+```{r}
+# day 7
+object.list <- object.list7
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+
+
+# ECM Pathways
+The primary signaling pathways involved in ECM deposition are primarily mediated through integrin receptors, which activate pathways like Focal Adhesion Kinase (FAK)/Src, MAPK (Mitogen Activated Protein Kinase), and PI3K/Akt upon binding to ECM components like collagen, fibronectin, and laminin, leading to downstream effects like cell proliferation, migration, and ultimately, ECM production. 
+Key points about ECM deposition signaling:
+Integrin-mediated signaling:
+Integrins act as the primary receptor for ECM molecules, initiating signaling cascades when engaged with their specific ligands. 
+FAK/Src pathway:
+Upon integrin activation, FAK and Src tyrosine kinases become phosphorylated, triggering downstream signaling events crucial for cell adhesion and migration. 
+MAPK pathway:
+Activated by integrin signaling, the MAPK cascade (including ERK1/2) regulates gene expression related to cell proliferation and ECM production. 
+PI3K/Akt pathway:
+This pathway is also activated by integrin signaling and contributes to cell survival, proliferation, and ECM deposition. 
+Rho/ROCK pathway:
+Integrin-mediated activation of Rho GTPase can lead to Rho-associated kinase (ROCK) activation, impacting cytoskeletal dynamics and cell motility, which are important for ECM remodeling. 
+Other important factors in ECM deposition signaling:
+Growth factors:
+Various growth factors like TGF-β can activate specific signaling pathways to stimulate ECM production. 
+Mechanical cues:
+The stiffness of the ECM can influence cell behavior and ECM deposition through mechanotransduction pathways. 
+Proteases:
+Enzymes like matrix metalloproteinases (MMPs) play a crucial role in ECM remodeling by degrading existing ECM components, facilitating new deposition. 
+
+GO:BP
+GO[["genesets"]][["Extracellular Matrix Assembly"]]
+ [1] "Agt"     "Antxr1"  "Atp7a"   "Clasp1"  "Clasp2"  "Col1a2"  "Col3a1"  "Dag1"    "Efemp2"  "Emilin1" "Fbln5"   "Fkbp10"  "Gas6"    "Gpm6b"   "Hapln2" 
+[16] "Has1"    "Has2"    "Has3"    "Ihh"     "Lamb1"   "Lamb2"   "Lamb3"   "Lox"     "Ltbp3"   "Mfap4"   "Myh11"   "Notch1"  "Ntn4"    "Ntng1"   "Ntng2"  
+[31] "Phldb1"  "Phldb2"  "Plod3"   "Pxdn"    "Qsox1"   "Ramp2"   "Rgcc"    "Smad3"   "Smpd3"   "Sox9"    "Tgfb1"   "Thsd4"   "Tie1"    "Tnxb" 
+```{r ECM pathways}
+pathways.show <- c("LAMININ", "COLLAGEN", "FN1", "MMP", "GALECTIN", "ICAM")
+
+# day2
+object.list <- object.list2
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+# day 7
+object.list <- object.list7
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+
+```
+
+
+# Angiogensis Pathways
+GO[["genesets"]][["Angiogenesis Involved In Wound Healing"]]
+ [1] "Adipor2"  "Alox5"    "B4galt1"  "Cd34"     "Cx3cl1"   "Cxcr4"    "Dag1"     "Foxc2"    "Gata2"    "Gpr4"     "Gpx1"     "Hpse"     "Itgb3"   
+[14] "Kdr"      "Mcam"     "Ndnf"     "Pik3cb"   "Prcp"     "Serpine1" "Slc12a2"  "Smoc2"    "Srf"      "Tafa5"    "Tnf"      "Tnfaip3"  "Vegfa"   
+[27] "Xbp1"   
+GO[["genesets"]][["Angiotensin Activated Signaling Pathway"]]
+ [1] "Actn2"  "Agtr1a" "Agtr2"  "Agtrap" "Ahcyl1" "Car2"   "Camk2a" "Cav1"   "Mas1"   "Rock1"  "Rock2"  "Src"   
+```{r angiogenesis pathways}
+pathways.show <- c("THBS", "ESAM", "CXCL", "VEGFA", "PECAM1", "SEMA3")
+
+object.list <- object.list2
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+
+object.list <- object.list7
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+
+# Inflammatory Pathways
+GO[["genesets"]][["Acute Inflammatory Response"]]
+  [1] "A2m"       "Acvr1"     "Adam8"     "Adora1"    "Adra2a"    "Ahsg"      "Alox5ap"   "Ano6"      "Apcs"      "Apoa2"     "Apol8"     "Ash1l"    
+ [13] "Ass1"      "B4galt1"   "Btk"       "C2cd4a"    "C2cd4b"    "C3"        "Ccr7"      "Cd163"     "Cd6"       "Cebpb"     "Cnr1"      "Creb3l3"  
+ [25] "Crp"       "Ctnnbip1"  "Dnase1"    "Dnase1l3"  "Ednrb"     "Eif2ak1"   "Elane"     "Epo"       "Ext1"      "F12"       "F2"        "F3"       
+ [37] "F8"        "Fcgr1"     "Fcgr2b"    "Fcgr4"     "Ffar2"     "Ffar3"     "Fn1"       "Fut7"      "Gata3"     "Gstp1"     "Gstp2"     "Hamp"     
+ [49] "H2-T23"    "Hp"        "Ighg1"     "Ighg2b"    "Ighg2c"    "Ighg3"     "Il1a"      "Il1b"      "Il20rb"    "Il22b"     "Il31ra"    "Il4"      
+ [61] "Il6"       "Il6ra"     "Il6st"     "Ins2"      "Itih4"     "Kl"        "Klkb1"     "Lbp"       "Mbl2"      "Mrgprb1"   "Mrgprb2"   "Mrgprx1"  
+ [73] "Mylk3"     "Nlrp3"     "Nlrp6"     "Npy"       "Npy5r"     "Nupr1"     "Ogg1"      "Oprm1"     "Orm1"      "Orm2"      "Osm"       "Osmr"     
+ [85] "Park7"     "Pik3cg"    "Pla2g2d"   "Plscr1"    "Prcp"      "Ptger3"    "Ptges"     "Ptgs2"     "Reg3b"     "Reg3g"     "Rhbdd3"    "S100a8"   
+ [97] "Saa1"      "Saa2"      "Saa4"      "Selenos"   "Serpina1b" "Serpina1e" "Serpina3c" "Serpina3k" "Serpina3m" "Serpina3n" "Serpinf2"  "Sigirr"   
+[109] "Tacr1"     "Tfr2"      "Tfrc"      "Tnf"       "Tnfrsf11a" "Tnfsf11"   "Tnfsf4"    "Trem1"     "Trpv1"     "Ugt1a1"    "Vcam1"     "Vnn1"     
+[121] "Zp3"   
+```{r inflam pathways}
+pathways.show <- c("CCL", "CXCL", "COMPLEMENT", "CD86", "TNF", "TGFB")
+# day 2
+object.list <- object.list2
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+
+# day 7
+object.list <- object.list7
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathways.show, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathways.show, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+
+# D0 to D2 to D7 Dotplots
+workflow: compute the signaling probabilities for each group, then make a new matrix with just that data extracted and plot it in ggplot
+
+original code
+```{r}
+# netAnalysis_river(cellchat_NP7, pattern = "outgoing")
+# PBS is squares
+h1 = netAnalysis_dot(cellchat_NP2, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 21)
+h2 = netAnalysis_dot(cellchat_NP7, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 21)
+h3 = netAnalysis_dot(cellchat_PBS2, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 22)
+h4 = netAnalysis_dot(cellchat_PBS7, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 22)
+h5 = netAnalysis_dot(cellchat_D0, pattern = "outgoing", group.show = c("Mon", "Neut"), shape = 22)
+
+patchwork::wrap_plots(h3, h1, nrow=2)
+patchwork::wrap_plots(h4,h2, nrow=2)
+
+# dev.off()
+```
+
+plot from source code
+```{r}
+# plotting vars
+shape = 21
+dot.size = c(1,3)
+dot.alpha = 1
+main.title = NULL
+font.size = 10
+font.size.title = 12
+color.use = NULL
+cutoff = NULL
+```
+
+## Monocytes PBS
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% filter(CellGroup == "Mon")
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+```
+
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Monocyte PBS Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08)))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Mon_D0_2_7_PBS_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+
+
+workflow: compute the signaling probabilites for each group, then make a new matrix with just that data extracted and plot it in ggplot
+
+original code
+## Monocytes NP
+
+
+```{r}
+table <- h1[["data"]] %>% mutate(id = "D2_NP") %>% filter(CellGroup == "Mon")
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+```
+
+
+```{r}
+gg2 <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Monocyte NP Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.1)))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg2 <- gg2 + guides(colour=FALSE) + guides(fill=FALSE)
+  gg2 <- gg2 + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg2
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Mon_D0_2_7_NP_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg2
+dev.off()
+```
+
+```{r}
+
+```
+
+
+## Monocytes All
+```{r}
+# table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% filter(CellGroup == "Mon")
+# new.table <- h4[["data"]] %>% mutate(id = "D7_PBS") %>% filter(CellGroup == "Mon")
+# table <- bind_rows(table, new.table)
+# new.table <- h5[["data"]] %>% mutate(id = "D0") %>% filter(CellGroup == "Mon")
+# table <- bind_rows(table, new.table)
+# new.table <- h1[["data"]] %>% mutate(id = "D2_NP") %>% filter(CellGroup == "Mon")
+# table <- bind_rows(table, new.table)
+# new.table <- h2[["data"]] %>% mutate(id = "D7_NP") %>% filter(CellGroup == "Mon")
+# table <- bind_rows(table, new.table)
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == "Mon")
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == "Mon")
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Monocyte Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Mon_D0_2_7_All_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Neutrophils PBS
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% filter(CellGroup == "Neut")
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+```
+
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Neutrophil PBS Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08)))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Neut_D0_2_7_PBS_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+
+
+workflow: compute the signaling probabilites for each group, then make a new matrix with just that data extracted and plot it in ggplot
+
+original code
+## Neutrophils NP
+
+
+```{r}
+table <- h1[["data"]] %>% mutate(id = "D2_NP") %>% filter(CellGroup == "Neut")
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+```
+
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Neutrophil NP Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.1)))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Neut_D0_2_7_NP_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Neutrophils All
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == "Neut")
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == "Neut")
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Neutrophil Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(
+      strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+          )
+       )
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = "~/SCIFlexSeq/Figures/Cellchat/Neut_D0_2_7_All_Dotplot.pdf", 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+# Dot Plot of Communcation Networks
+```{r}
+netAnalysis_dot(cellchat_PBS2, pattern = "outgoing", group.show = c("Fib", "Stro"))
+
+```
+workflow: compute the signaling probabilities for each group, then make a new matrix with just that data extracted and plot it in ggplot
+
+original code
+```{r}
+# netAnalysis_river(cellchat_NP7, pattern = "outgoing")
+# PBS is squares
+h1 = netAnalysis_dot(cellchat_NP2, pattern = "outgoing", group.show = c("Endo", "Micro", "Stro", "Fib", "Peri"), shape = 21)
+h2 = netAnalysis_dot(cellchat_NP7, pattern = "outgoing", group.show = c("Endo", "Micro", "Stro", "Fib", "Peri"), shape = 21)
+h3 = netAnalysis_dot(cellchat_PBS2, pattern = "outgoing", group.show = c("Endo", "Micro", "Stro", "Fib", "Peri"), shape = 22)
+h4 = netAnalysis_dot(cellchat_PBS7, pattern = "outgoing", group.show = c("Endo", "Micro", "Stro", "Fib", "Peri"), shape = 22)
+h5 = netAnalysis_dot(cellchat_D0, pattern = "outgoing", group.show = c("Endo", "Micro", "Stro", "Fib", "Peri"), shape = 22)
+
+patchwork::wrap_plots(h3, h1, nrow=2)
+patchwork::wrap_plots(h4,h2, nrow=2)
+
+# dev.off()
+```
+
+plot from source code
+```{r}
+# plotting vars
+shape = 21
+dot.size = c(1,3)
+dot.alpha = 1
+main.title = NULL
+font.size = 10
+font.size.title = 12
+color.use = NULL
+cutoff = NULL
+```
+
+
+## Endothelial All
+```{r}
+# set cell type 
+cell = "Endo"
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+
+
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Endothelial Outgoing Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = paste0("~/SCIFlexSeq/Figures/Cellchat/", cell, "_D0_2_7_AllPatways_Outgoing_Dotplot.pdf"), 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Microglia 
+
+```{r}
+# set cell type 
+cell = "Micro"
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Microglia Outgoing Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = paste0("~/SCIFlexSeq/Figures/Cellchat/", cell, "_D0_2_7_AllPatways_Outgoing_Dotplot.pdf"), 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Stromal
+
+```{r}
+# set cell type 
+cell = c("Stro")
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Stromal Outgoing Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = paste0("~/SCIFlexSeq/Figures/Cellchat/", cell, "_D0_2_7_AllPatways_Outgoing_Dotplot.pdf"), 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Fibroblast
+
+```{r}
+# set cell type 
+cell = c("Fib")
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Fibroblast Outgoing Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = paste0("~/SCIFlexSeq/Figures/Cellchat/", cell, "_D0_2_7_AllPatways_Outgoing_Dotplot.pdf"), 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+## Pericyte
+
+```{r}
+# set cell type 
+cell = c("Peri")
+```
+
+```{r}
+table <- h3[["data"]] %>% mutate(id = "D2_PBS") %>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+new.table <- h4[["data"]] %>% mutate(id = "D7_PBS")%>% mutate(treat = "PBS") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h5[["data"]] %>% mutate(id = "D0")%>% mutate(treat = "Naive") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h1[["data"]] %>% mutate(id = "D2_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table)
+new.table <- h2[["data"]] %>% mutate(id = "D7_NP")%>% mutate(treat = "NP") %>% filter(CellGroup == cell)
+table <- bind_rows(table, new.table) %>% filter(!is.na(Contribution))
+```
+
+```{r}
+gg <- ggplot(data = table, aes(x = Signaling, y = id)) +
+    geom_point(aes(size =  Contribution, fill = id, colour = id), shape = 21) +
+    facet_wrap(~treat, nrow=3, scales = "free_y",  strip.position = "right") +
+    scale_size_continuous(range = dot.size) +
+    theme_linedraw() +
+    scale_x_discrete(position = "bottom") +
+    ggtitle("Pericyte Outgoing Signaling Pathways") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(text = element_text(size = font.size),plot.title = element_text(size=font.size.title, face="plain"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.y = element_text(angle = 0, hjust=1),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25)) +
+    theme(panel.grid.major = element_line(colour="grey90", size = (0.08))) +
+    theme(strip.text = element_text(colour = "black"),
+        strip.background = element_rect(
+          fill = "grey90",
+         color = "black",
+          linewidth = 1
+  ))
+  # gg <- gg + scale_y_discrete(limits = rev(levels(data3$CellGroup)))
+  # gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE, na.value = "white")
+  # gg <- gg + scale_colour_manual(values = color.use, drop = FALSE, na.value = "white")
+  gg <- gg + guides(colour=FALSE) + guides(fill=FALSE)
+  gg <- gg + theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+  gg
+```
+
+```{r}
+pdf(file = paste0("~/SCIFlexSeq/Figures/Cellchat/", cell, "_D0_2_7_AllPatways_Outgoing_Dotplot.pdf"), 
+    width = 16, height = 3
+    )
+gg
+dev.off()
+```
+
+# Circle Plots
+```{r}
+# Chord diagram
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_chord_gene(object.list[[2]], sources.use = 4, targets.use = c(5:11), slot.name = 'net', net = net.up, lab.cex = 0.8, small.gap = 3.5, title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+netVisual_chord_gene(object.list[[1]], sources.use = 4, targets.use = c(5:11), slot.name = 'net', net = net.down, lab.cex = 0.8, small.gap = 3.5, title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+#> You may try the function `netVisual_chord_cell` for visualizing individual signaling pathway
+```
+
+
+
+# Simplified Plots
+The differential number of interactions or interaction strength in the cell-cell communication network between two datasets can be visualized using circle plot, where red
+ (or blue) colored edges represent increased
+ (or decreased) signaling in the second dataset compared to the first one.
+```{r}
+gg1 <- netVisual_heatmap(cellchat7)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat7, measure = "weight")
+#> Do heatmap based on a merged object
+gg1 + gg2
+```
+
+```{r}
+png(file = "~/SCIFlexSeq/Figures/Cellchat/D7_PBS_NP_Heatmap.png", 
+    width = 8, 
+    height = 5, unit= "in", bg = "transparent", res = 300 )
+gg1 + gg2
+dev.off()
+```
+
+```{r}
+gg1 <- netVisual_heatmap(cellchat2)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat2, measure = "weight")
+#> Do heatmap based on a merged object
+gg1 + gg2
+```
+
+```{r}
+png(file = "~/SCIFlexSeq/Figures/Cellchat/D2_PBS_NP_Heatmap.png", 
+    width = 8, 
+    height = 5, unit = "in", res = 300, bg = "transparent")
+gg1 + gg2
+dev.off()
+```
+
+
+```{r}
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_diffInteraction(cellchat7, weight.scale = T)
+netVisual_diffInteraction(cellchat7, weight.scale = T, measure = "weight")
+
+weight.max <- getMaxWeight(object.list7, attribute = c("idents","count"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list7)) {
+  netVisual_circle(object.list7[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list7)[i]))
+}
+ggsave(file = "~/SCIFlexSeq/Figures/Cellchat/D7_interaction_condition.png")
+
+```
+
+```{r}
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_diffInteraction(cellchat2, weight.scale = T)
+netVisual_diffInteraction(cellchat2, weight.scale = T, measure = "weight")
+
+weight.max <- getMaxWeight(object.list2, attribute = c("idents","count"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list2)) {
+  netVisual_circle(object.list2[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list2)[i]))
+}
+```
+
+## Simplified Names
+Simplify names of D7 cellchat objects, as 'cellchat' and 'object.list7'
+```{r}
+group.cellType <- c("Stro", "Micro", "Mon", "Endo", "Micro", "Leuko", "Glial", "Mon", "Glial", "Glial", "Stro", "Glial", "Stro", "Neut", "Stro")
+group.cellType <- factor(group.cellType, levels = c("Mon", "Neut", "Stro", "Endo", "Micro", "Glial", "Leuko"))
+object.list7 <- lapply(object.list7, function(x) {mergeInteractions(x, group.cellType)})
+cellchat <- mergeCellChat(object.list7, add.names = names(object.list7))
+
+
+weight.max <- getMaxWeight(object.list7, slot.name = c("idents", "net", "net"), attribute = c("idents","count", "count.merged"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list7)) {
+  netVisual_circle(object.list7[[i]]@net$count.merged, weight.scale = T, label.edge= T, edge.weight.max = weight.max[3], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list7)[i]))
+}
+```
+
+differential interactions
+```{r}
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_diffInteraction(cellchat, weight.scale = T, measure = "count.merged", label.edge = T)
+netVisual_diffInteraction(cellchat, weight.scale = T, measure = "weight.merged", label.edge = T)
+```
+
+```{r}
+library(ComplexHeatmap)
+object.list <- object.list7
+
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+
+```{r}
+mat <- cellchat@net$weight
+par(mfrow = c(3,4), xpd=TRUE)
+for (i in 1:nrow(mat)) {
+  mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
+  mat2[i, ] <- mat[i, ]
+  netVisual_circle(mat2, vertex.weight = groupSize, weight.scale = T, edge.weight.max = max(mat), title.name = rownames(mat)[i])
+}
+```
+
