@@ -20,53 +20,7 @@ library(org.Mm.eg.db)
 library(clusterProfiler)
 library(dittoSeq)
 ```
-
-
-# Outline 
-figures to produce (focusing on immune dynamics)
-Fig 1: general populations
-  1A: identification dot plot 
-  1B: UMAP 
-  1C: population frequency plots
-  1D: comparing conditions/time points 
   
-Fig 2: macrophage subpopulations 
-  2A: identification dot plot 
-  2B: UMAP 
-  2C: frequency plots 
-  2D: comparing conditions/time points  
-  
-Fig 3: neutrophil subpopulations 
-  3A: identification dot plot 
-  3B: UMAP 
-  3C: frequency plots 
-  3D: comparing conditions/time points 
-  
-Fig 4: monocyte subpopulations 
-  4A: identification dot plot 
-  4B: UMAP
-  4C: frequency plots 
-  4D: comparing conditions/time points 
-  
-Fig 5: general myeloid group subpopulations 
-  5A: identification dot plot 
-  5B: UMAP 
-  5C: frequency plots 
-  5D: comparing conditions/time points 
-  
-Fig 6: microglia subpopulations 
-  6A: identification dot plot 
-  6B: UMAP 
-  6C: frequency plots 
-  6D: comparing conditions/time points 
-  
-  
-For future: 
-- look at vascular subsets 
-- look at stromal subsets
-- neural subsets??
-- signaling 
-
 Notes: use SCT res 0.6 for cluster assignment, but RNA for visualization and differential expression testing 
 
 load the data 
