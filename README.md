@@ -7,17 +7,18 @@ Raw sequencing data is available at GEO under accession number GSE302362. Proces
 
 
 ## Files 
-+ CellChat_Comparison_Analysis.Rmd - compare NP treated and untreated groups with cellchat 
-+ CellChat_Figures.Rmd - generate cellchat figures 
-+ Cellchat_Object_Prep.Rmd - convert seurat object to cellchat objects
-+ Flex_Data_Preprocessing.Rmd - run QC, cleanup data, combine samples to aggregate object 
-+ Generate_Figures.Rmd - generate plots 
+In order of processing: 
++ Flex_Data_Preprocessing.Rmd - run QC, cleanup data, combine samples to aggregate object
++ Seurat_Processing.Rmd - create and pre-process Seurat object (filter and cluster, pre-cluster ID)
 + Lung_Label_Clusters.Rmd - label clusters in the lung, cell identification
++ Generate_Figures.Rmd - generate plots
++ Cellchat_Object_Prep.Rmd - convert seurat object to cellchat objects
++ CellChat_Comparison_Analysis.Rmd - compare NP treated and untreated groups with cellchat
++ v2_CellChat_Comparison_Analysis.Rmd - v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
++ CellChat_Figures.Rmd - generate cellchat figures 
 + moDC_Th17_Mechanism.Rmd - generate moDC and Th17 DEGs and plots 
 + Myeloid_Analysis.Rmd - contains more granular markers for myeloid subtype identification
-+ Seurat_Processing.Rmd - create and pre-process Seurat object (filter and cluster, pre-cluster ID) 
-+ v2_CellChat_Comparison_Analysis.Rmd - v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
-+ moDC.R - examine moDC DEGs to CSV  
++ moDC.R - examine moDC DEGs, generate .csv  
 
 ## Functions
 + find_doublets.R - run findDoublets on per sample basis 
