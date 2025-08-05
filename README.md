@@ -19,7 +19,7 @@ Raw sequencing data is available at GEO under accession number GSE302362. Proces
 + moDC_Th17_Mechanism.Rmd - generate moDC and Th17 DEGs and plots 
 + Myeloid_Analysis.Rmd - analyze myeloid cells in lung 
 + Seurat_Processing.Rmd - create and pre-process Seurat object (filter and cluster, pre-cluster ID) 
-+ v2_CellChat_Comparison_Analysis.Rmd - compare updated cellchat to old cellchat 
++ v2_CellChat_Comparison_Analysis.Rmd - v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
 + moDC.R - examine moDC population 
 
 ## Functions
