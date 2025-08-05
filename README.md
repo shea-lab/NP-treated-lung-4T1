@@ -17,7 +17,7 @@ Raw sequencing data is available at GEO under accession number GSE302362. Proces
 + Myeloid_Analysis.Rmd - contains more granular markers for myeloid subtype identification
 + Seurat_Processing.Rmd - create and pre-process Seurat object (filter and cluster, pre-cluster ID) 
 + v2_CellChat_Comparison_Analysis.Rmd - v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
-+ moDC.R - examine moDC population 
++ moDC.R - examine moDC DEGs to CSV  
 
 ## Functions
 + find_doublets.R - run findDoublets on per sample basis 
