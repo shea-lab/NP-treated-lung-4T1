@@ -24,4 +24,3 @@ Raw sequencing data is available at GEO under accession number GSE302362. Proces
 + remove_soup.R - run the SoupX package on per sample basis
 + run_ddqcR.R - run ddqcR clean up on per sample basis 
 + prep_clusterProfiler.R - take seurat object, find DEGs based on set ident, return object for clusterProfiler 
-+ run_clusterProfiler.R - defunct 
