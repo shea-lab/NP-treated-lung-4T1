@@ -10,14 +10,11 @@ Raw sequencing data is available at GEO under accession number GSE302362. Proces
 + CellChat_Comparison_Analysis.Rmd - compare NP treated and untreated groups with cellchat 
 + CellChat_Figures.Rmd - generate cellchat figures 
 + Cellchat_Object_Prep.Rmd - convert seurat object to cellchat objects
-+ DEG Analysis and cluster Profiler.Rmd - 
 + Flex_Data_Preprocessing.Rmd - run QC, cleanup data, combine samples to aggregate object 
 + Generate_Figures.Rmd - generate plots 
-+ Label_Clusters.Rmd - label clusters (incl lung and PT)
 + Lung_Label_Clusters.Rmd - label clusters in the lung, cell identification
-+ Lung_Label_Clusters_NoStro.Rmd - label clusters in the lung, no stromal sample (CD45-)
 + moDC_Th17_Mechanism.Rmd - generate moDC and Th17 DEGs and plots 
-+ Myeloid_Analysis.Rmd - analyze myeloid cells in lung 
++ Myeloid_Analysis.Rmd - contains more granular markers for myeloid subtype identification
 + Seurat_Processing.Rmd - create and pre-process Seurat object (filter and cluster, pre-cluster ID) 
 + v2_CellChat_Comparison_Analysis.Rmd - v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
 + moDC.R - examine moDC population 
