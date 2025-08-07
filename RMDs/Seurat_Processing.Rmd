@@ -20,7 +20,7 @@ This should be the output from Flex_Data_Processing_and_Filtering.Rmd
 
 load either 
   scTransformed then merged object: sct_combined_filtered_tnbc_object.rds
-  merged, not yet scTransformed: combined_filtered_tnbc_object.rds
+ ** this one ** merged, not yet scTransformed: combined_filtered_tnbc_object.rds
   merged then scTransformed: merged_sct_filtered_tnbc_object.rds
   merged, scTransformed, then integrated: integrated_merged_sct_filtered_tnbc_object.rds
 
@@ -41,110 +41,9 @@ install glmGamPoi before using, significantly improves speed
 BiocManager::install("glmGamPoi")
 
 
-## Archived: Integrate scTransformed Merged Dataset 
-scTransform > merge > integrate
-
-** error 5/3 ** KG
-layers of scTransform are staying in layers rather than merging and making integration not work?
-Need to run PCA, but need to find variable features first 
-Other people same issue: https://github.com/satijalab/seurat/issues/8425
-No way to unify multiple sct models 
-potential solution: https://github.com/satijalab/seurat/issues/7542#issuecomment-1631534467
-
-5/29 KG 
-ability to integrate a layered sctransformed object doesn't appear to exist yet, (can't play nice with assay V5) 
-so we'll just merge then transform until further notice.
-```{r}
-# library(Seurat) # make sure you are running SeuratV5
-# options(Seurat.object.assay.version = 'v5')
-# library(SeuratData)
-# 
-# obj <- LoadData("pbmcsca")
-# obj <- UpdateSeuratObject(obj)
-# obj <- subset(obj, nFeature_RNA > 1000)
-# obj[["RNA"]] <- split(obj[["RNA"]], f = obj$Method)
-# 
-# #obj <- subset(obj, Method == "Smart-seq2", invert=T)
-# #obj[["RNA"]] <- split(obj[["RNA"]], f = obj$tech)
-# 
-# # run sctransform
-# obj <- SCTransform(obj, vst.flavor = "v2")
-# obj <- RunPCA(obj, npcs = 30, verbose = FALSE)
-# 
-# # one-liner to run Integration
-# obj <- IntegrateLayers(object = obj, method = HarmonyIntegration,
-#                        orig.reduction = "pca", new.reduction = 'harmony',
-#                        assay = "SCT", verbose = FALSE)
-# obj <- FindNeighbors(obj, reduction = "harmony", dims = 1:30)
-# obj <- FindClusters(obj, resolution = 2, cluster.name = "harmony_clusters")
-# 
-# #
-# obj <- RunUMAP(obj, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony")
-# p1 <- DimPlot(
-#   obj,
-#   reduction = "umap.harmony",
-#   group.by = c("Method", "CellType"),
-#   combine = FALSE
-# )
-# patchwork::wrap_plots(p1)
-```
-
-5/29 KG : attempt integration and see if I can combine the layers so it works?
-```{r attempt integration}
-# integrate datasets
-# comb <- IntegrateLayers(object = data, method = CCAIntegration, normalization.method = "SCT", verbose = F)
-# ifnb <- FindNeighbors(ifnb, reduction = "integrated.dr", dims = 1:30)
-# ifnb <- FindClusters(ifnb, resolution = 0.6)
-```
-
-
-```{r}
-# split datasets and process without integration
-# data[["RNA"]] <- split(data[["RNA"]], f = data$sample)
-# data <- SCTransform(data)
-# data <- RunPCA(data)
-# data <- RunUMAP(data, dims = 1:30)
-# DimPlot(data, reduction = "umap", group.by = c("sample", "seurat_annotations"))
-```
-
-
-
-# Archived 2: old integration method (not working)
-```{r plot merge, transform, no integration data }
-# data <- FindVariableFeatures(data)
-data <- RunPCA(data, verbose=F)
-data <- RunUMAP(data, dims = 1:20, verbose =F)
-
-ElbowPlot(data)
-```
-
-
-## PCA and UMAP
-```{r}
-data <- JoinLayers(data)
-data <- FindVariableFeatures(data)
-data <- RunPCA(data, verbose=F)
-data <- RunUMAP(data, dims = 1:20, verbose =F)
-```
-
-
-```{r}
-ElbowPlot(data)
-```
-
-```{r}
-data <- FindNeighbors(data, dims = 1:20, verbose = F)
-data <- FindClusters(data, verbose =F)
-DimPlot(data, group.by = c("shortname", "seurat_clusters"), label=T)
-```
-
-
-
-
-
-# Integrate and SCT from Merged Object (working!!)
+# Integrate and SCT from Merged Object
 ## run SCT, check dimplot 
-*** It's possible we'll want to regress out cell cycle, but maybe not 5/31 KG
+
 ```{r}
 ifnb <- JoinLayers(data)
 

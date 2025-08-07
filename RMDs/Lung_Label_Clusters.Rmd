@@ -29,9 +29,7 @@ library(clusterProfiler)
 
 # Load Data
 ```{r}
-# data = readRDS("~/Documents/Kate/NMMscRNAseq/Data/integrated_merged_sct_filtered_tnbc_object.rds")
-
-data = readRDS("~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+data = readRDS("./Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
 
 # visualize to make sure it's properly loaded
 ```
@@ -43,39 +41,13 @@ data <- RenameIdents(data, 'lung_np' = "NP+", 'lung_imm' = "NP-", 'lung_tb' = "U
 data@meta.data$shortname <- data@active.ident 
 
 data$shortname <- factor(data$shortname, levels = c("Untreated","NP+", "NP-", "Stromal"))
-# data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","AT2",    "Endothelial",  "Fibroblast", "Th1 T Cell", "T Central Mem", "HSP+ T Cell", "4T1"))
 
-data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
+data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Monocyte", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
 
 data@meta.data$identity <- paste0(data$shortname, "_", data$phenotype)
 
 
 ```
-
-"Neutrophil"="#FB9A98",
-             "Inflammatory Neutrophil"="#E3201D",
-            "IFN Stimulated Neutrophil"="#911441",
-            "NK Cell"="#F29404" ,
-            "B Cell"= "#E2BE02", 
-            "Macrophage"="#1C9E77" , 
-            "recMac"="#B1DF8A",
-            "alvMac"="#4CAF4B", 
-            "moDC"="#233075" ,
-            "AT2"="#377EB8",
-            "HSP+ T Cell"="#54B0E3", 
-            "Endothelial"="#00CDD1",
-            "T Central Mem"="#F681C0" ,
-            "Th1 T Cell"="#BB9DCC" ,
-            "Basophils"= "#984EA3",
-            "4T1"="#E72A8A",
-            "Fibroblast"="#A65628" 
-
- [1] "Neutrophil"                "IFN Stimulated Neutrophil" "Inflammatory Neutrophil"   "Macrophage"                "recMac"                   
- [6] "alvMac"                    "moDC"                      "Basophils"                 "B Cell"                    
- "Th1 T Cell"               
-[11] "T Central Mem"             "HSP+ T Cell"               "NK Cell"                   "Endothelial"               "Fibroblast"               
-[16] "AT2"                       "4T1"   
-
 
 # Visualize
 ```{r}
@@ -96,67 +68,6 @@ colors <- c("Neutrophil"="#FB9A98",
             "Endothelial"="#BB9DCC" ,
             "4T1"= "#F681C0",# "#E72A8A",
             "Fibroblast"= "#EA9FFF")
-
-# genentech palette 
-colors <- c("Neutrophil"="#DC4405",
-             "Inflammatory Neutrophil"="#C8102E",
-            "IFN Stimulated Neutrophil"="#862633",
-            "NK Cell"="#F29404" ,
-            "B Cell"= "#E2BE02", 
-            "Macrophage"="#008c15" , 
-            "recMac"="#74aa50",
-            "alvMac"="#c3d393", 
-            "moDC"= "#005844",
-            "AT2"="#485cc7",
-            "Endothelial"="#8dc8e0",
-            "HSP+ T Cell"= "#8c4799",
-            "T Central Mem"= "#dea8dd", 
-            "Th1 T Cell"="#ba9cc5" ,
-            "Basophils"= "#eaf3d9",
-            "4T1"= "#af1685",# "#E72A8A",
-            "Fibroblast"="#9baee4" )
-
-colors <- c("Neutrophil"="#FB9A98",
-             "Inflammatory Neutrophil"="#E3201D",
-            "IFN Stimulated Neutrophil"="#911441",
-            "NK Cell"="#F29404" ,
-            "B Cell"= "#E2BE02", 
-            "Macrophage"="#1C9E77" , 
-            "recMac"="#B1DF8A",
-            "alvMac"="#4CAF4B", 
-            "moDC"="#233075" ,
-            "AT2"="#377EB8",
-            "Endothelial"="#00CDD1",
-            "HSP+ T Cell"= "#984EA3",
-            "T Central Mem"= "#EA9FFF", 
-            "Th1 T Cell"="#BB9DCC" ,
-            "Basophils"= "#54B0E3",
-            "4T1"= "#F681C0",# "#E72A8A",
-            "Fibroblast"="#A65628" )
-
-# colors <- c("Neutrophil"="#FB9A98",
-#             "Inflammatory Neutrophil"="#E3201D",
-#             "IFN Stimulated Neutrophil"="#911441",
-#             
-#             "B Cell"= "#E2BE02", 
-#             "Endothelial"="#00CDD1",
-#             
-#             "Macrophage"="#377EB8",
-#             "recMac"="#B1DF8A",
-#             "alvMac"="#4CAF4B", 
-#             "moDC"="#233075" ,
-#             
-#             "NK Cell"="#F29404" ,
-#             "T Central Mem"="#F681C0" ,
-#             "Th1 T Cell"="#BB9DCC" ,
-#             "HSP+ T Cell"="#54B0E3", 
-#             
-#             "Fibroblast"="#A65628", 
-#            
-# 
-#             "Basophils"= "#984EA3",
-#             "AT2"="#1C9E77" , 
-#             "4T1"="#E72A8A")
 ```
 
 
@@ -209,7 +120,7 @@ DimPlot(data, split.by = "shortname")
 ```
 
 ```{r}
-saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_integrated_merged_sct_filtered_object.rds")
+saveRDS(data, file = "~./Data/lung_integrated_merged_sct_filtered_object.rds")
 ```
 
 
@@ -270,24 +181,8 @@ gene_list <- Features(data)
 gene_list <- str_split(gene_list, "/t")
 ```
 
-## Cell cycle phase
-tutorial: https://hbctraining.github.io/scRNA-seq_online/lessons/06_SC_SCT_normalization.html
-** come back to this
-```{r}
-# DimPlot(data, label = T, split.by = "Phase")
-```
-
 # Clustering Analysis
 tutorial: https://hbctraining.github.io/scRNA-seq/lessons/08_SC_clustering_quality_control.html
-cell type markers: https://docs.google.com/spreadsheets/d/1WksC1b-KfHl0X1AVh4jKY-fs6LN3IR42KIqhN_kpta0/edit#gid=0
-
-Reference paper, SCI single cell popultions: https://doi.org/10.1084/jem.20210040
-  Milich et al
-
-Cell types we expect: 
-general immune cells 
-specialized neural cells (microglia, astrocytes, glia, neurons)
-stromal cells 
 
 ```{r}
 # Select the RNA counts slot to be the default assay
@@ -300,12 +195,11 @@ data <- NormalizeData(data, verbose = FALSE)
 ```
 
 # Immune Cell ID
-
 ```{r}
 DimPlot(data, label = T, split.by = "shortname")
 ```
 
-From OneNote 'Gene Marker List' Spine: 
+Some Known Markers: 
 Cd3e, Cd4, Cd8a (T Cells)
 Ncr1, Klrb1c, Klre1 (NK Cells)
 Cd79a, Cd19, Ms4a1, Iglc3 (B Cells)
@@ -471,7 +365,6 @@ DotPlot(data, features = c("Cd8a", "Ifng", "Gzmb", "Cd44", "Klrg1",
 Idents(data) <- data@meta.data$SCT_snn_res.0.6
 ```
 
-***6/4 try looking at DCs in lung only samples, and in NP+ only sample. Maybe other cell types are blowing out expression
 CD11c = Itgax 
 ```{r DCs, fig.height=12, fig.width=15, fig.asp=0.5 , fig.align='default'}
 DotPlot(data, features = c("Itgax", "Cd86", "Siglech", "Klk1", "Cd40", "Cd80")) + RotatedAxis()
@@ -1245,8 +1138,8 @@ data@meta.data$identity <- paste0(data@meta.data$shortname, "_", data@meta.data$
 
 # Save Object
 ```{r}
-saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
-data <- readRDS(file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+saveRDS(data, file = "~./Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+data <- readRDS(file = "~./Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
 ```
 
 # Create Sub-Type R Objects
@@ -1258,22 +1151,22 @@ Idents(data) <- data@meta.data$phenotype
 
 ```{r myeloid}
 neut <- subset(data, idents = c("Neutrophil"))
-saveRDS(neut, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_neutrophil.rds")
+saveRDS(neut, file = "~./Data/lung_neutrophil.rds")
 
 recMac <- subset(data, idents = c("recMac"))
-saveRDS(recMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_recruited_macrophage.rds")
+saveRDS(recMac, file = "~./Data/lung_recruited_macrophage.rds")
 
 mac <- subset(data, idents = c("Macrophage"))
-saveRDS(mac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_macrophage.rds")
+saveRDS(mac, file = "~./Data/lung_macrophage.rds")
 
 alvMac <- subset(data, idents = c("alvMac"))
-saveRDS(alvMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_alveolar_macrophage.rds")
+saveRDS(alvMac, file = "~./Data/lung_alveolar_macrophage.rds")
 
 allMac <- subset(data, idents = c("Macrophage", "recMac", "alvMac"))
-saveRDS(allMac, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_macrophage.rds")
+saveRDS(allMac, file = "~./Data/lung_all_macrophage.rds")
 
 allMyeloid <- subset(data, idents = c("Macrophage", "recMac", "alvMac", "Neutrophil", "Unknown 1", "Unknown 2"))
-saveRDS(allMyeloid, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_all_myeloid.rds")
+saveRDS(allMyeloid, file = "~./Data/lung_all_myeloid.rds")
 
 rm(neut, recMac, mac, alvMac, allMac)
 ```
@@ -1281,29 +1174,26 @@ rm(neut, recMac, mac, alvMac, allMac)
 
 ```{r non-myeloid}
 tcell <- subset(data, idents = c("T cell"))
-saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_tcell.rds")
+saveRDS(tcell, file = "~./Data/lung_tcell.rds")
 
 bcell <- subset(data, idents = c("B cell"))
-saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_bcell.rds")
+saveRDS(tcell, file = "~./Data/lung_bcell.rds")
 
 endo <- subset(data, idents = c("Endothelial"))
-saveRDS(endo, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_endothelial.rds")
+saveRDS(endo, file = "~./Data/lung_endothelial.rds")
 
 nkcell <- subset(data, idents = c("NK cell"))
-saveRDS(tcell, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_nkcell.rds")
+saveRDS(tcell, file = "~./Data/lung_nkcell.rds")
 
 fibro <- subset(data, idents = c("Fibroblast"))
-saveRDS(fibro, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_fibroblast.rds")
+saveRDS(fibro, file = "~./Data/lung_fibroblast.rds")
 
 cancer <- subset(data, idents = c("4T1"))
-saveRDS(fibro, file = "~/Documents/Kate/NMMscRNAseq/Data/lung_4T1_cancer.rds")
+saveRDS(fibro, file = "~./Data/lung_4T1_cancer.rds")
 
 rm(tcell, bcell, endo, nkcell, fibro, cancer)
 ```
 
-
-
-# OLD
 # Myeloid Populations Subclustering
 if lineage is myeloid, group together and recluster for better res 
 ```{r}
@@ -1359,9 +1249,6 @@ using Biology of Lung Macrophages in Health and Disease as a reference, check ge
 alveolar macrophages (AM) - first line defenders aof alveoli and airwayss
 lung interstitual macrophages (IM) - gatekeepers of vascularture and lung interstitium 
 recruited macrophages (recMacs) - recruited monocytes that become part of the lung macrophage pool, unique transcriptome and function
-
-
-
 
 ```{r}
 Idents(myeloid) <- subgroup@meta.data$SCT_snn_res.0.4
@@ -1424,155 +1311,6 @@ data <- RenameIdents(data, '0' = 'Neutrophil', '1' = 'Neutrophil', '2' = 'Macrop
 data@meta.data$phenotype = data@active.ident
 
 ```
-
-
-
-
-# SingleR
-some references/tutorials: 
-Bioconductor vignette: https://bioconductor.org/packages/release/bioc/vignettes/SingleR/inst/doc/SingleR.html#2_Using_built-in_references
-Bioconductor SingleR book: https://bioconductor.org/books/release/SingleRBook/introduction.html#quick-start
-
-Cell References 
-celldex: pokedex for celltypes, https://bioconductor.org/packages/3.19/data/experiment/vignettes/celldex/inst/doc/userguide.html
-
-
-Install packages if not already installed: 
-issue with alabaster.base , try alternate install for that package? 
-https://www.bioconductor.org/packages/release/bioc/html/alabaster.base.html 
-* 5/7/24 KG
-
-```{r}
-# BiocManager::install("SingleR")
-# BiocManager::install("scRNAseq")
-# BiocManager::install("celldex") # this one failed "ERROR: dependency ‘alabaster.base’ is not available for package # ‘celldex’
-```
-
-```{r echo=FALSE, results="hide", message=FALSE}
-knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
-library(BiocStyle)
-# library(celldex)
-library(scRNAseq)
-library(SingleR)
-
-```
-
-Search function is throwing an error- package didn't install correctly?? 5/7/24 KG
-```{r load ref dataset}
-# Find all mm10 datasets involving pancreas or neurons.
-scRNAseq::searchDatasets(
-   defineTextQuery("GRCm38", field="genome") &
-   (defineTextQuery("neuro%", partial=TRUE) | 
-    defineTextQuery("spin%", partial=TRUE))
-)[,c("name", "title")]
-```
-
-## obtain reference dataset
-
-Use scRNAseq package to obtain a reference dataset: 
-Zeisel A et al. (2018). Molecular architecture of the mouse nervous system. Cell 174(4), 999-1014.
-mouse nervous system single cell RNA-seq from Zeisel et al 2018
-Row data contains the gene symbol as well as some relevant per-gene statistics, e.g., the squared coefficient of variance, mean, and whether it was selected for downstream analyses.
-Column data contains a wide variety of fields including patient-level information, sample-level sequencing statistics and many flavors of cell type classification. Note that many numeric columns may have NA values if they could not be successfully parsed form the source file.
-If location=TRUE, the coordinates of the Ensembl gene models are stored in the rowRanges of the output.
-All data are downloaded from ExperimentHub and cached for local re-use. Specific resources can be retrieved by searching for scRNAseq/zeisel-nervous.
-```{r scRNAseq ref dataset}
-ref_data <- ZeiselNervousData(location = TRUE)
-```
-
-Using celldex to obtain a reference dataset: 
-```{r celldex ref dataset}
-# celldex::searchReferences(
-#     defineTextQuery("immun%", partial=TRUE) & 
-#     defineTextQuery("10090", field="taxonomy_id")
-# )
-
-ms_ref <- celldex::MouseRNAseqData(ensembl = FALSE, cell.ont = "all")
-
-# Immunological Genome Project (ImmGen) 
-# microarray of pure mouse immune cells 
-immgen_ref <- celldex::ImmGenData(ensembl = FALSE, cell.ont = "all")
-```
-
-
-### singleR using built in reference (Bioconductor tutorial)
-```{r}
-hpca.se <- HumanPrimaryCellAtlasData()
-hpca.se
-```
-
-```{r}
-hESCs <- LaMannoBrainData('human-es')
-hESCs <- hESCs[,1:100]
-```
-
-```{r}
-pred.hesc <- SingleR(test = data, ref = ref_data, assay.type.test=1,
-    labels = ref_data$label.main)
-```
-
-
-```{r}
-pred.hesc
-# Summarizing the distribution:
-table(pred.hesc$labels)
-```
-
-### singleR using single-cell references (Bioconductor tutorial)
-
-```{r}
-library(scRNAseq)
-sceM <- MuraroPancreasData()
-
-# One should normally do cell-based quality control at this point, but for
-# brevity's sake, we will just remove the unlabelled libraries here.
-sceM <- sceM[,!is.na(sceM$label)]
-
-# SingleR() expects reference datasets to be normalized and log-transformed.
-library(scuttle)
-sceM <- logNormCounts(sceM)
-```
-
-```{r}
-sceG <- GrunPancreasData()
-sceG <- sceG[,colSums(counts(sceG)) > 0] # Remove libraries with no counts.
-sceG <- logNormCounts(sceG) 
-```
-
-```{r}
-pred.grun <- SingleR(test=sceG, ref=sceM, labels=sceM$label, de.method="wilcox")
-table(pred.grun$labels)
-```
-
-### Visualization of singleR predictions (Bioconductor tutorial)
-
-```{r}
-plotScoreHeatmap(pred.grun)
-```
-
-```{r}
-plotDeltaDistribution(pred.grun, ncol = 3)
-
-```
-
-```{r}
-summary(is.na(pred.grun$pruned.labels))
-
-```
-
-```{r}
-all.markers <- metadata(pred.grun)$de.genes
-sceG$labels <- pred.grun$labels
-
-# Beta cell-related markers
-library(scater)
-plotHeatmap(sceG, order_columns_by="labels",
-    features=unique(unlist(all.markers$beta))) 
-```
-
-### accessing new references
-ArrayExpress and GEOquery can be used to access any bulk or single cell datasets in ArrayExpress or GEO
-
 
 # SessionInfo
 ```{r}

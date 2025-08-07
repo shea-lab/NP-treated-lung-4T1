@@ -1,20 +1,5 @@
 ```{r}
-# library(Seurat)
-# library(dplyr)
-# library(readr)
-# library(tidyverse)
-# 
-# # Load libraries
-# library(SingleCellExperiment)
-# library(Matrix)
-# library(scales)
-# library(cowplot)
-# library(RCurl)
-# library(AnnotationDbi)
-# library(org.Mm.eg.db)
-# library(clusterProfiler)
-
-library(hypeR)
+# library(hypeR)
 library(Seurat)
 library(dplyr)
 library(readr)
@@ -34,7 +19,7 @@ library(msigdbr)
 library(readxl)
 library(ComplexHeatmap)
 
-library(DoMultiBarHeatmap)
+# library(DoMultiBarHeatmap)
 library(dittoSeq)
 library(GO.db)
 library(patchwork)
@@ -72,26 +57,29 @@ convert_human_to_mouse <- function(gene_list) {
 }
 
 # setup files 
-subgroup.list <- c("microglia.rds",  "monocyte.rds",  
-                   "clean_integrated_neutrophil.rds",   "integrated_stromal.rds",    "clean_integrated_vascular.rds" )
-cell.list <- c("Microglia", "Monocyte", "Neutrophil", "Stromal", "Vascular")
-subgroup.files <- c("Microglia_deg.csv",  "monocyte_deg.csv",   "neutrophil_deg.csv", "Stromal_deg.csv" ,   "vascular_deg.csv")
+# subgroup.list <- c("microglia.rds",  "monocyte.rds",  
+#                    "clean_integrated_neutrophil.rds",   "integrated_stromal.rds",    "clean_integrated_vascular.rds" )
+# cell.list <- c("Microglia", "Monocyte", "Neutrophil", "Stromal", "Vascular")
+# subgroup.files <- c("Microglia_deg.csv",  "monocyte_deg.csv",   "neutrophil_deg.csv", "Stromal_deg.csv" ,   "vascular_deg.csv")
 
 condition.list <- c("Untreated", "NP+", "NP-", "Stromal")
 
-results.path = "~/Documents/Kate/NMMscRNAseq/Results/"
-data.path = "~/Documents/Kate/NMMscRNAseq/Data/"
-figure.path = "~/Documents/Kate/NMMscRNAseq/Figures/"
+results.path = "~/Results/"
+# data.path = "~/Data/"
+# figure.path = "~/Figures/"
 
-source("~/Documents/Kate/NMMscRNAseq/run_clusterProfiler.R")
-source("~/Documents/Kate/NMMscRNAseq/prep_clusterProfiler.R")
+source("../prep_clusterProfiler.R")
 
 ```
 
 # Load Data
+```{bash}
+curl("https://www.dropbox.com/scl/fi/jxbu7i7u78pkxthvavepl/labeled_lung_int_merge_sct_filt_tnbc.rds?rlkey=y2vn60d8g0ytfr7bwmbxw9abf&st=trqx3omm&dl=1")
+```
+
 
 ```{r}
-data <- readRDS(file = "~/Documents/Kate/NMMscRNAseq/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
+data <- readRDS(file = "~/Data/labeled_lung_int_merge_sct_filt_tnbc.rds")
 
 Idents(data) <- "phenotype"
 
@@ -106,7 +94,7 @@ colors <- c("Neutrophil"="#FB9A98",
             "Basophils"= "#DC4405",
             "NK Cell"="#F29404" ,
             "B Cell"= "#E2BE02", 
-            "Macrophage"="#1C9E77" , 
+            "Monocyte"="#1C9E77" , 
             "recMac"="#B1DF8A",
             "alvMac"="#4CAF4B", 
             "moDC"= "#5D6DC1",
@@ -120,7 +108,7 @@ colors <- c("Neutrophil"="#FB9A98",
 
 
 data$shortname <- factor(data$shortname, levels = c("Untreated","NP+", "NP-", "Stromal"))
-data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Macrophage", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
+data$phenotype <- factor(data$phenotype, levels = c("Neutrophil",  "Inflammatory Neutrophil","IFN Stimulated Neutrophil","Basophils","NK Cell","B Cell", "Monocyte", "recMac", "alvMac", "moDC","Th1 T Cell", "T Central Mem", "HSP+ T Cell", "AT2",    "Endothelial",  "Fibroblast",  "4T1"))
 ```
 
 Th1: Ccr5, Cxcr3, Tbet, Ifng, Tnfa, 
@@ -172,59 +160,6 @@ database_names <- c("HALLMARK", "GO", "KEGG")
 # database_list <- c(BIOCARTA, KEGG, REACTOME, WIKI, HALLMARK, GO, IMM)
 # database_names <- c("BIOCARTA", "KEGG", "REACTOME", "WIKI", "HALLMARK", "GO", "IMM")
 
-```
-
-# Calculate DEGs
-```{r}
-# compute the list of DEGs between NP and PBS at the same time point
-for (i in 1:length(subgroup.list)) {
-  # load Seurat object
-  subgroup <- readRDS(paste0(data.path, subgroup.list[i]))
-  cell = cell.list[i]
-  
-  # set comparisons 
-  Idents(subgroup) <- "sample"
-  
-  # prepare for DEG comparison
-  subgroup <- PrepSCTFindMarkers(subgroup)
-  # DefaultAssay(object = subgroup) <- "SCT"
-  # 
-  # subgroup[["RNA"]] <- JoinLayers(subgroup[["RNA"]])
-  # subgroup <- JoinLayers(subgroup)
-  
-  # Run DEG Comparison
-  homeostatic.de <- FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d2.np", min.pct=0.25, logfc.threshold=0.25) %>%    
-    mutate(comp = "d2.pbs_v_d2.np")   %>% rownames_to_column(var = "gene")
-  
-  new <-FindMarkers(subgroup, ident.1 = "d7.pbs", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% 
-    mutate(comp = "d7.pbs_v_d7.np") %>% rownames_to_column(var = "gene")
-  homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-  # new <-FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d7.pbs", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.pbs_v_d7.pbs") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  # 
-  # new <-FindMarkers(subgroup, ident.1 = "d2.np", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.np_v_d7.np") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-  write.csv(homeostatic.de, file=paste0(results.path,cell,"_condition_deg.csv"))
-  rm(new, subgroup)
-}
-```
-
-```{r}
-features = c("Il1b", "Il12b", "Il23a", "Irf4", "Klf4", "H2-Aa", "Il6", "Tnf")
-RidgePlot(data, features = features, ncol = 3)
-
-```
-
-```{r}
-# Violin plot - Visualize single cell expression distributions in each cluster
-VlnPlot(data, features = features)
-```
-
-```{r}
-# SplitDotPlotGG has been replaced with the `split.by` parameter for DotPlot
-DotPlot(data, features = features, split.by = "nptreated", cols = c("#FCCC62", "#7EA5DD", "#B9ADBE")) + RotatedAxis()
 ```
 
 # moDCS
@@ -290,12 +225,6 @@ cell = "moDC"
     mutate(comp = "NP+") %>% rownames_to_column(var = "gene")
   homeostatic.de <- bind_rows(homeostatic.de, new)
   
-  # new <-FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d7.pbs", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.pbs_v_d7.pbs") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  # 
-  # new <-FindMarkers(subgroup, ident.1 = "d2.np", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.np_v_d7.np") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  
   write.csv(homeostatic.de, file=paste0(results.path,cell,"_sample_deg.csv"))
   # rm(new, subgroup)
 ```
@@ -326,165 +255,7 @@ Idents(subgroup) <- "shortname"
     mutate(comp = "NP+_v_all") %>% rownames_to_column(var = "gene")
   homeostatic.de <- bind_rows(homeostatic.de, new)
   
-  # new <-FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d7.pbs", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.pbs_v_d7.pbs") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  # 
-  # new <-FindMarkers(subgroup, ident.1 = "d2.np", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.np_v_d7.np") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  
   write.csv(homeostatic.de, file=paste0(results.path,cell,"_versus_sample_deg.csv"))
-```
-
-
-## hypeR between conditions
-```{r}
-
-# clean the condition based DEGs
-# myFiles <- list.files(path = results.path, pattern="_versus_sample_deg.csv")
-myFiles <- list.files(path = results.path, pattern="moDC")
-
-plot.save.dir <- "~/Documents/Kate/NMMscRNAseq/Figures/hypeR/Condition/"
-
-# for (i in 1:length(myFiles)) {
-i=1
-  # load the DEG file
-  homeostatic.de <- read.csv(paste0(results.path, myFiles[i]), header=T, stringsAsFactors=T)
-  
-  # list the cell name 
-  cell = strsplit(myFiles[i], "[_]")[[1]][1]
-  
-  # add labels to the DEGs
-  homeostatic.de <- homeostatic.de %>% 
-    mutate(significant = case_when(
-      p_val_adj < 0.01 ~ "significant",
-      p_val_adj >= 0.01 ~ "non-significant",
-      .default = "non-significant"
-    )) %>% mutate(expression = case_when(
-      avg_log2FC > 0 ~ "positive", 
-      avg_log2FC <= 0 ~ "negative", 
-      .default = "non-significant"
-    )) %>%  
-    group_by(comp, expression) %>% 
-    dplyr::filter(abs(avg_log2FC) > 0.25, significant == "significant") %>%
-    arrange(desc(abs(avg_log2FC))) %>% ungroup()
-  
-  print("label DEGs complete")
-  
-  ### convert DEGs to human gene symbol 
-  geneV2 <- convert_mouse_to_human(homeostatic.de$gene)
-  geneV2 <- as.data.frame(geneV2) 
-  # geneV2 <- rename(geneV2, gene = V1)
-  homeostatic.de <- left_join(homeostatic.de, as.data.frame(geneV2), by = c("gene" = "V1"), multiple = "first")
-  homeostatic.de <- rename(homeostatic.de, "human_gene" = "V2")
-  
-  print("join human IDs complete")
-  
-  ### Upregaulted Genes
-  # upregulated genesets- mouse (HALLMARK, KEGG, GO)
-    signatures <- homeostatic.de %>% filter(expression == "positive") %>% dplyr::select(gene) %>% split(homeostatic.de$comp) 
-  for (i in 1:length(signatures)){
-    signatures[[i]] <- signatures[[i]]$gene
-  }
-    
-    # human signature
-    # signatures.h <- homeostatic.de %>% filter(expression == "positive") %>% dplyr::select(human_gene) %>% split(homeostatic.de$comp) 
-    # for (i in 1:length(signatures.h)){
-    #   signatures.h[[i]] <- signatures.h[[i]]$human_gene
-    # }
-  
-  print("select upreg genes complete")
-  
-  #run with up regulated genes
-  for (i in 1:(length(database_list))){
-
-    # hypeR with hypergeometic genes    
-   tryCatch( {
-     mhyp <- hypeR(signatures, database_list[[i]], test="hypergeometric", background=30000)
-     # pdf(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Hypergeometic", "_Upreg.pdf"))
-     hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(str_to_title(cell), " Upregulated Hypergeometic ", database_names[i]))
-     # dev.off()
-     ggsave(file =paste0(plot.save.dir, cell, "_",database_names[[i]], "_Hypergeometic", "_Upreg.pdf"), dpi = 300 )
-  }, error = function(e) -999)
-  }
-  
-  for (i in 1:(length(database_list))){
-    # hypeR with weighted gene signature genes
-   tryCatch({ 
-     mhyp <- hypeR(signatures, database_list[[i]], test="kstest")
-     # pdf(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Ranked", "_Upreg.pdf"))
-    hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(str_to_title(cell), " Upregulated Ranked Signature ", database_names[i]))
-    # dev.off()
-    ggsave(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Ranked", "_Upreg.pdf"), dpi =300)
-  }, error = function(e) -999)
-    }
-  
-  
-  print("plot complete")
-  
-  
-  ### Downregulated Genes
-  # upregulated genesets- mouse (HALLMARK, KEGG, GO)
-  signatures <- homeostatic.de %>% filter(expression == "negative") %>% dplyr::select(gene) %>% split(homeostatic.de$comp) 
-  for (i in 1:length(signatures)){
-    signatures[[i]] <- signatures[[i]]$gene
-  }
-  
-  
-  print("downreg genes complete")
-  
-  for (i in 1:(length(database_list))){
-    # hypeR with hypergeometic genes
-    tryCatch( {
-      mhyp <- hypeR(signatures, database_list[[i]], test="hypergeometric", background=30000)
-      # pdf(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Hypergeometic", "_Downreg.pdf"))
-      hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(str_to_title(cell), " Downregulated Hypergeometic ", database_names[i]))
-      # dev.off()
-      ggsave(filename = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Hypergeometic", "_Downreg.pdf"), dpi = 300 )
-    }, error = function(e) -999)
-  }
-  
-  for (i in 1:(length(database_list))){
-    # hypeR with weighted gene signature genes
-    tryCatch({ 
-      mhyp <- hypeR(signatures, database_list[[i]], test="kstest")
-      # pdf(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Ranked", "_Downreg.pdf"))
-      hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(str_to_title(cell), " Downregulated Ranked Signature ", database_names[i]))
-      # dev.off()
-      ggsave(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Ranked", "_Downreg.pdf"), dpi=300)
-    }, error = function(e) -999)
-  }
-  
-  print(paste0(cell, " complete"))
-  
-  
-# }
-
-
-
-# save the plots 
-# pdf(file = paste0(plot.save.dir, cell, database_list[[i]], "_Hypergeometic", "_Upreg.pdf"))
-# hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(cell," Upregulated Hallmark Gene Set, Hypergeometic"))
-# dev.off()
-```
-
-```{r}
-intersect(signatures[[1]], signatures[[2]])
-var1=signatures[[1]]
-var2=signatures[[2]]
-
-var1 = c("Gbp2b" ,    "Pdcd1",     "Tnfrsf9" ,  "Acod1" , "Gzmb")
-var2 = c("Abcb1a",    "Klrk1" ,    "Trim12c", "Gzmb")
-intersect(var1, var2)
-
-
-
- 
-```
-
-```{r}
- mhyp <- hypeR(signatures, database_list[[1]], test="hypergeometric", background=30000)
- # pdf(file = paste0(plot.save.dir, cell, "_",database_names[[i]], "_Hypergeometic", "_Upreg.pdf"))
- hyp_dots(mhyp, merge=TRUE, fdr=0.05, title= paste0(str_to_title(cell), " Upregulated Hypergeometic ", database_names[1]))
 ```
 
 ## ClusterProfiler
@@ -493,14 +264,13 @@ intersect(var1, var2)
 Idents(subgroup) <- subgroup@meta.data$shortname
 # Idents(subgroup) <- subgroup@meta.data$nptreated
 
-
-
 res_list = prep_clusterProfiler(subgroup, organism = 'mouse')
 
 genelist = res_list[[1]]
 allMac.de.pos = res_list[[2]]
 
 ```
+
 ```{r}
 GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
 GOclusterplot <- setReadable(GOclusterplot, OrgDb = "org.Mm.eg.db", keyType = "ENTREZID")
@@ -526,7 +296,6 @@ rescale for visualization
 DefaultAssay(subgroup) <- "RNA"
 ```
 
-
 loss of genes with scale data because it only runs on variable features normally 
 https://github.com/satijalab/seurat/issues/5334
 ```{r}
@@ -536,10 +305,7 @@ subgroup <- NormalizeData(subgroup, verbose = FALSE)
 subgroup <- ScaleData(subgroup, assay='RNA', features = rownames(subgroup))
 ```
 
-
-
-
-### Generate DEGs
+## Generate DEGs
 ```{r}
 Idents(subgroup) <- subgroup@meta.data$shortname
 
@@ -559,66 +325,6 @@ head(npneg.v.tb.recMac.de, n = 10)
 nppos.v.tb.recMac.de <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "Untreated", verbose = FALSE)
 head(nppos.v.tb.recMac.de, n = 10)
 ```
-### Gene Heatmap
-turn DGE plots into heatmaps
-
-#### > beween groups
-```{r}
-# gene_list <- rbind(nppos.v.npneg.allMac.de[1:10,], 
-#                    np.recMac.de[1:10,],
-#                    alvMac.de[1:10,], 
-#                    np.alvMac.de[1:10,],
-#                    cDC.de[1:10,], 
-#                    np.cDC.de[1:10,])
-
-deg_gene_list <- rownames(rbind(nppos.v.npneg.recMac.de[1:10,], 
-                   npneg.v.tb.recMac.de[1:10,],
-                   nppos.v.tb.recMac.de[1:10,]))
-# deg_gene_list <- rownames(deg_gene_list)
-deg_gene_list <- unique(deg_gene_list)
-```
-
-
-
-
-```{r}
-# issue with indexing for this 
-# dittoHeatmap(subgroup, unique(rownames(deg_gene_list)),
-#     annot.by = c("shortname", "phenotype"), 
-#     order.by = "phenotype")
-# 
-# dittoHeatmap(subgroup, deg_gene_list,
-#     annot.by = c("shortname", "phenotype"), 
-#     order.by = "phenotype")
-```
-
-#### > all comparison
-
-added variable j for indexing plots: DoMulti has name based indexing while DoHeatmap has number based, this is messing up the combining of plots. But now it makes two plots, idk why
-```{r}
-# heatmap of top 15 abs(log2FC) FindAll
-DoMultiBarHeatmap(subgroup, features= recMac.de$gene, assay = 'RNA', layer = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname", additional.group.by = "phenotype",  group.bar=T) + 
-  scale_fill_distiller(palette = "RdYlBu") +
-  guides(color=FALSE) + theme(axis.text.y = element_text(size = 10))
-#cols.use = colors
-
-# order the phenotypes 
-```
-
-```{r}
-# heatmap of top 10 genes from each individual comparison
-DoMultiBarHeatmap(subgroup, features= deg_gene_list, assay = 'RNA', layer = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname",  group.bar=T) + 
-  scale_fill_distiller(palette = "RdYlBu") +
-  guides(color=FALSE) + theme(axis.text.y = element_text(size = 10))
-#cols.use = colors
-
-# order the phenotypes 
-
-DoHeatmap(subgroup, features= deg_gene_list, assay = 'RNA', slot = 'scale.data', label = T, size = 4, draw.lines = F, group.by= "shortname",  group.bar=T) + 
-  scale_fill_distiller(palette = "RdYlBu") +
-  guides(color=F) + theme(axis.text.y = element_text(size = 10))
-```
-
 
 ### ClusterProfiler
 
@@ -653,7 +359,6 @@ subgroup@meta.data$shortname <- subgroup@active.ident
 Idents(subgroup) <- subgroup@meta.data$shortname
 subgroup <- JoinLayers(subgroup)
 
-
 # allMac NP+ vs NP-
 nppos.v.npneg.recMac.de.pos <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "NP-", verbose = FALSE, only.pos = T)
 head(nppos.v.npneg.recMac.de, n = 10)
@@ -670,13 +375,10 @@ head(nppos.v.tb.recMac.de, n = 10)
 ```{r}
 # prepare gene lists to enter to cluster prof
 Idents(subgroup) <- subgroup@meta.data$shortname
-
-
 res_list = prep_clusterProfiler(subgroup, organism = 'mouse')
 
 genelist = res_list[[1]]
 allMac.de.pos = res_list[[2]]
-
 ```
 
 ```{r}
@@ -687,7 +389,6 @@ ggo <- groupGO(gene     = unlist((genelist[2]), use.names = F),
                readable = TRUE)
 
 head(ggo)
-
 ```
 
 
@@ -696,361 +397,23 @@ GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb 
 GOclusterplot <- setReadable(GOclusterplot, OrgDb = "org.Mm.eg.db", keyType = "ENTREZID")
 head(GOclusterplot)
 # results <- GOclusterplot@compareClusterResult
-dotplot(GOclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster GO terms", showCategory = 10 )
+dotplot(GOclusterplot, font.size = 12, label_format = 60, title = "reMac Sub-cluster GO terms", showCategory = 10 )
 ```
 
 ```{r}
 KEGGclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichKEGG", org = 'mmu')
-dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster KEGG terms" )
+dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "recMac Sub-cluster KEGG terms" )
 ```
 
 ```{r}
 Pathwayclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichPathway", organism = 'mouse')
-dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster Pathway terms" )
+dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "recMac Sub-cluster Pathway terms" )
 ```
-
-
-
-
-# Th1 Cluster Profiler
-ident.2 serves as control
-
-### Subset object 
-```{r}
-cell = "Th1 T Cell"
-
-Idents(data) <- "phenotype"
-subgroup <- subset(data, subset = phenotype == cell)
-
-# remove stromal 
-Idents(subgroup) <- "shortname"
-subgroup <- subset(subgroup, subset = shortname != "Stromal")
-subgroup@meta.data$shortname <- subgroup@active.ident
-```
-
-rescale for visualization
-
-```{r}
-# Select the RNA counts slot to be the default assay
-DefaultAssay(subgroup) <- "RNA"
-```
-
-
-loss of genes with scale data because it only runs on variable features normally 
-https://github.com/satijalab/seurat/issues/5334
-```{r}
-# Normalize RNA data for visualization purposes
-subgroup <- NormalizeData(subgroup, verbose = FALSE)
-
-subgroup <- ScaleData(subgroup, assay='RNA', features = rownames(subgroup))
-
-subgroup <- JoinLayers(subgroup)
-```
-
-
-
-
-### Generate DEGs
-```{r}
-Idents(subgroup) <- subgroup@meta.data$shortname
-
-# all markers
-recMac.de <- FindAllMarkers(subgroup) %>% group_by(cluster) %>% arrange(desc(abs(avg_log2FC))) %>% slice(1:15)
-# allMac.de %>% group_by(cluster) %>% arrange(desc(abs(avg_log2FC))) %>% slice(1:15)
-
-# allMac NP+ vs NP-
-nppos.v.npneg.recMac.de <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "NP-", verbose = FALSE)
-head(nppos.v.npneg.recMac.de, n = 10)
-
-# allMac NP- vs TB
-npneg.v.tb.recMac.de <- FindMarkers(subgroup, ident.1 = "NP-", ident.2 = "Untreated", verbose = FALSE)
-head(npneg.v.tb.recMac.de, n = 10)
-
-# allMac NP+ vs TB
-nppos.v.tb.recMac.de <- FindMarkers(subgroup, ident.1 = "NP+", ident.2 = "Untreated", verbose = FALSE)
-head(nppos.v.tb.recMac.de, n = 10)
-```
-```{r}
-Idents(subgroup) <- "shortname"
-cell = "Th1"
-
-  # subgroup <- JoinLayers(subgroup)
-  
-  # Run DEG Comparison
-  homeostatic.de <- FindMarkers(subgroup, ident.1 = "Untreated", min.pct=0.25, logfc.threshold=0.5) %>%    
-    mutate(comp = "Untreated")   %>% rownames_to_column(var = "gene")
-  
-  new <-FindMarkers(subgroup, ident.1 = "NP-", min.pct=0.25, logfc.threshold=0.5) %>% 
-    mutate(comp = "NP-") %>% rownames_to_column(var = "gene")
-  homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-   new <-FindMarkers(subgroup, ident.1 = "NP+", min.pct=0.25, logfc.threshold=0.5) %>% 
-    mutate(comp = "NP+") %>% rownames_to_column(var = "gene")
-  homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-  # new <-FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d7.pbs", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.pbs_v_d7.pbs") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  # 
-  # new <-FindMarkers(subgroup, ident.1 = "d2.np", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.np_v_d7.np") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-  write.csv(homeostatic.de, file=paste0(results.path,cell,"_sample_deg.csv"))
-  # rm(new, subgroup)
-  
-  
-Idents(subgroup) <- "nptreated"
-subgroup <- RenameIdents(subgroup, 'untreated' = "TB", 'NP_pos_cells' = "NP", 'NP_neg_cells' = "NP")
-subgroup@meta.data$nptreated <- subgroup@active.ident 
-cell = "Th1"
-
-# subgroup <- JoinLayers(subgroup)
-
-# Run DEG Comparison
-homeostatic.de <- FindMarkers(subgroup, ident.1 = "TB", min.pct=0.25, logfc.threshold=0.5) %>%    
-  mutate(comp = "TB")   %>% rownames_to_column(var = "gene")
-
-new <-FindMarkers(subgroup, ident.1 = "NP", min.pct=0.25, logfc.threshold=0.5) %>% 
-  mutate(comp = "NP") %>% rownames_to_column(var = "gene")
-homeostatic.de <- bind_rows(homeostatic.de, new)
-
-#  new <-FindMarkers(subgroup, ident.1 = "NP+", min.pct=0.25, logfc.threshold=0.5) %>% 
-#   mutate(comp = "NP+") %>% rownames_to_column(var = "gene")
-# homeostatic.de <- bind_rows(homeostatic.de, new)
-
-write.csv(homeostatic.de, file=paste0(results.path,cell,"_nptreated_deg.csv"))
-# rm(new, subgroup)  
-```
-
-
-```{r}
-# clean the condition based DEGs
-# myFiles <- list.files(path = results.path, pattern="_versus_sample_deg.csv")
-myFiles <- list.files(path = results.path, pattern="_nptreated_deg.csv")
-
-plot.save.dir <- "~/Documents/Kate/NMMscRNAseq/Figures/hypeR/Condition/"
-
-# for (i in 1:length(myFiles)) {
-i=1
-  # load the DEG file
-  homeostatic.de <- read.csv(paste0(results.path, myFiles[i]), header=T, stringsAsFactors=T)
-  
-  # list the cell name 
-  cell = strsplit(myFiles[i], "[_]")[[1]][1]
-  
-  # add labels to the DEGs
-  homeostatic.de <- homeostatic.de %>% 
-    mutate(significant = case_when(
-      p_val_adj < 0.01 ~ "significant",
-      p_val_adj >= 0.01 ~ "non-significant",
-      .default = "non-significant"
-    )) %>% mutate(expression = case_when(
-      avg_log2FC > 0 ~ "positive", 
-      avg_log2FC <= 0 ~ "negative", 
-      .default = "non-significant"
-    )) %>%  
-    group_by(comp, expression) %>% 
-    dplyr::filter(abs(avg_log2FC) > 0.25, significant == "significant") %>%
-    arrange(desc(abs(avg_log2FC))) %>% ungroup()
-  
-  print("label DEGs complete")
-  
-  ### convert DEGs to human gene symbol 
-  geneV2 <- convert_mouse_to_human(homeostatic.de$gene)
-  geneV2 <- as.data.frame(geneV2) 
-  # geneV2 <- rename(geneV2, gene = V1)
-  homeostatic.de <- left_join(homeostatic.de, as.data.frame(geneV2), by = c("gene" = "V1"), multiple = "first")
-  homeostatic.de <- rename(homeostatic.de, "human_gene" = "V2")
-  
-  print("join human IDs complete")
-  
-  ### Upregaulted Genes
-  # upregulated genesets- mouse (HALLMARK, KEGG, GO)
-    signatures <- homeostatic.de %>% filter(expression == "positive") %>% dplyr::select(gene) %>% split(homeostatic.de$comp) 
-  for (i in 1:length(signatures)){
-    signatures[[i]] <- signatures[[i]]$gene
-  }
-    
-    signatures <- homeostatic.de %>% filter(expression == "positive") %>% group_by(comp) %>% arrange(comp, desc(avg_log2FC)) %>% top_n(n=15, avg_log2FC) #%>% dplyr::select(gene)
-```
-
-
-### Gene Heatmap
-turn DGE plots into heatmaps
-```{r}
-# gene_list <- rbind(nppos.v.npneg.allMac.de[1:10,], 
-#                    np.recMac.de[1:10,],
-#                    alvMac.de[1:10,], 
-#                    np.alvMac.de[1:10,],
-#                    cDC.de[1:10,], 
-#                    np.cDC.de[1:10,])
-
-deg_gene_list <- rownames(rbind(nppos.v.npneg.recMac.de[1:10,], 
-                   npneg.v.tb.recMac.de[1:10,],
-                   nppos.v.tb.recMac.de[1:10,]))
-# deg_gene_list <- rownames(deg_gene_list)
-deg_gene_list <- unique(deg_gene_list)
-```
-
-Complex heatmap
-https://divingintogeneticsandgenomics.com/post/enhancement-of-scrnaseq-heatmap-using-complexheatmap/
-```{r}
-
-counts <- GetAssayData(subgroup, assay="RNA", slot="counts")
-genes <- signatures$gene
-counts <- as.matrix(counts[rownames(counts) %in% genes, ])
-  
-# mat<- subgroup[["RNA"]]@data[recMac.de$gene, ] %>% as.matrix()
-
-## scale the rows
-mat <- counts
-mat<- t(scale(t(mat)))
-
-cluster_anno<- subgroup@meta.data$nptreated
-
-quantile(mat, c(0.1, 0.95))
-
-```
-```{r}
-Seurat::BlueAndRed()
-col_fun = circlize::colorRamp2(c(-1, 0, 3), c("#313695", "white", "#A50026"))
-
-```
-
-with 3 groups 
-```{r}
-NP_colors <- c("NP+" = "#90BFF9", "NP-" = "#C8DEF9", "Untreated" = "#D4D4D4")
-# column_ha <- HeatmapAnnotation(cluster = anno_block(
-#   gp = gpar(fill = c() "#90BFF9", "#C8DEF9", "#D4D4D4")), # <- here controls the filled color
-#   labels = c("group1", "group2", "group3"),
-#   labels_gp = gpar(col = "white", fontsize = 10),
-# ))
-
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        # column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = c("#D4D4D4", "#90BFF9", "#C8DEF9")), 
-                                           labels = c("Untreated", "NP+", "NP-"))),
-        show_column_names = F,
-        column_title = NULL,
-        use_raster = F)
-
-
-
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = scales::hue_pal()(9)))),
-        show_column_names = FALSE,
-        use_raster = F,
-        raster_quality = 4)
-
-```
-
-
-
-```{r}
-# issue with indexing for this 
-# dittoHeatmap(subgroup, unique(rownames(deg_gene_list)),
-#     annot.by = c("shortname", "phenotype"), 
-#     order.by = "phenotype")
-# 
-# dittoHeatmap(subgroup, deg_gene_list,
-#     annot.by = c("shortname", "phenotype"), 
-#     order.by = "phenotype")
-```
-
-
-
-### ClusterProfiler
-re-run DGE but with only positive markers 
-```{r}
-# prepare gene lists to enter to cluster prof
-# Idents(subgroup) <- subgroup@meta.data$nptreated
-Idents(subgroup) <- subgroup@meta.data$shortname
-
-
-
-res_list = prep_clusterProfiler(subgroup, organism = 'mouse')
-
-genelist = res_list[[1]]
-allMac.de.pos = res_list[[2]]
-
-```
-
-```{r}
-ggo <- groupGO(gene     = unlist((genelist[1]), use.names = F),
-               OrgDb    = org.Mm.eg.db,
-               ont      = "BP",
-               level    = 3,
-               readable = TRUE)
-
-# head(ggo)
-ggo[1:10]
-
-```
-
-
-```{r}
-# signatures <- homeostatic.de %>% filter(expression == "positive") %>% dplyr::select(gene) %>% split(homeostatic.de$comp) 
-#   for (i in 1:length(signatures)){
-#     signatures[[i]] <- signatures[[i]]$gene
-#   }
-
-GOclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichGO", OrgDb = "org.Mm.eg.db")
-GOclusterplot <- setReadable(GOclusterplot, OrgDb = "org.Mm.eg.db", keyType = "ENTREZID")
-head(GOclusterplot)
-View(GOclusterplot@compareClusterResult)
-# results <- GOclusterplot@compareClusterResult
-dotplot(GOclusterplot, font.size = 12, label_format = 60, title = paste0(cell," GO terms"), showCategory = 10 )
-```
-
-```{r}
-KEGGclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichKEGG", org = 'mmu')
-dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster KEGG terms" )
-```
-
-```{r}
-Pathwayclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichPathway", organism = 'mouse')
-dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster Pathway terms" )
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Th1 Cluster Profiler- UPDATED
 ident.2 serves as control
-
-### Subset object 
+## Subset object 
 ```{r}
 cell = "Th1 T Cell"
 
@@ -1086,7 +449,7 @@ subgroup <- ScaleData(subgroup, assay='RNA', features = rownames(subgroup))
 subgroup <- JoinLayers(subgroup)
 ```
 
-### Generate DEGs
+## Generate DEGs
 ```{r}
 Idents(subgroup) <- "shortname"
 cell = "Th1"
@@ -1104,12 +467,6 @@ cell = "Th1"
    new <-FindMarkers(subgroup, ident.1 = "NP+", min.pct=0.25, logfc.threshold=0.5) %>% 
     mutate(comp = "NP+") %>% rownames_to_column(var = "gene")
   homeostatic.de <- bind_rows(homeostatic.de, new)
-  
-  # new <-FindMarkers(subgroup, ident.1 = "d2.pbs", ident.2 = "d7.pbs", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.pbs_v_d7.pbs") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
-  # 
-  # new <-FindMarkers(subgroup, ident.1 = "d2.np", ident.2 = "d7.np", min.pct=0.25, logfc.threshold=0.25) %>% mutate(comp = "d2.np_v_d7.np") %>% rownames_to_column(var = "gene")
-  # homeostatic.de <- bind_rows(homeostatic.de, new)
   
   write.csv(homeostatic.de, file=paste0(results.path,cell,"_sample_deg.csv"))
   # rm(new, subgroup)
@@ -1142,7 +499,7 @@ write.csv(homeostatic.de, file=paste0(results.path,cell,"_nptreated_deg.csv"))
 # myFiles <- list.files(path = results.path, pattern="_versus_sample_deg.csv")
 myFiles <- list.files(path = results.path, pattern="Th1")
 
-plot.save.dir <- "~/Documents/Kate/NMMscRNAseq/Figures/hypeR/Condition/"
+plot.save.dir <- "~/Results/"
 ```
 
 
@@ -1188,89 +545,7 @@ View(signatures %>% arrange(gene))
 
 ```
 
-
-### Gene Heatmap
-turn DGE plots into heatmaps
-
-Complex heatmap
-https://divingintogeneticsandgenomics.com/post/enhancement-of-scrnaseq-heatmap-using-complexheatmap/
-```{r}
-
-counts <- GetAssayData(subgroup, assay="RNA", slot="counts")
-genes <- signatures$gene
-counts <- as.matrix(counts[rownames(counts) %in% genes, ])
-  
-# mat<- subgroup[["RNA"]]@data[recMac.de$gene, ] %>% as.matrix()
-
-## scale the rows
-mat <- counts
-mat<- t(scale(t(mat)))
-
-cluster_anno<- subgroup@meta.data$nptreated
-
-quantile(mat, c(0.1, 0.95))
-
-```
-```{r}
-Seurat::BlueAndRed()
-col_fun = circlize::colorRamp2(c(-1, 0, 3), c("#313695", "white", "#A50026"))
-
-```
-
-with 3 groups 
-```{r}
-# NP_colors <- c("NP+" = "#90BFF9", "NP-" = "#C8DEF9", "Untreated" = "#D4D4D4")
-# column_ha <- HeatmapAnnotation(cluster = anno_block(
-#   gp = gpar(fill = c() "#90BFF9", "#C8DEF9", "#D4D4D4")), # <- here controls the filled color
-#   labels = c("group1", "group2", "group3"),
-#   labels_gp = gpar(col = "white", fontsize = 10),
-# ))
-
-# heatmap with 3 groups 
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        # column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = c("#D4D4D4", "#90BFF9", "#C8DEF9")), 
-                                           labels = c("Untreated", "NP+", "NP-"))),
-        show_column_names = F,
-        column_title = NULL,
-        use_raster = F)
-
-
-# heatmap with 2 groups 
- # anno_block(gp = gpar(fill = c("#D4D4D4", "#90BFF9")), 
-                                           # labels = c("TB", "NP"))),
-
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = scales::hue_pal()(9)))),
-        show_column_names = FALSE,
-        use_raster = F,
-        raster_quality = 4)
-
-```
-
-
-### ClusterProfiler
+## ClusterProfiler
 re-run DGE but with only positive markers 
 ```{r}
 # prepare gene lists to enter to cluster prof
@@ -1329,12 +604,12 @@ dotplot(selected_pathways, font.size = 12, label_format = 60, title = paste0(cel
 
 ```{r}
 KEGGclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichKEGG", org = 'mmu')
-dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster KEGG terms" )
+dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "Th1 Sub-cluster KEGG terms" )
 ```
 
 ```{r}
 Pathwayclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichPathway", organism = 'mouse')
-dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster Pathway terms" )
+dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "Th1 Sub-cluster Pathway terms" )
 ```
 
 
@@ -1481,88 +756,6 @@ View(signatures %>% arrange(gene))
 
 ```
 
-
-### Gene Heatmap
-turn DGE plots into heatmaps
-
-Complex heatmap
-https://divingintogeneticsandgenomics.com/post/enhancement-of-scrnaseq-heatmap-using-complexheatmap/
-```{r}
-
-counts <- GetAssayData(subgroup, assay="RNA", slot="counts")
-genes <- signatures$gene
-counts <- as.matrix(counts[rownames(counts) %in% genes, ])
-  
-# mat<- subgroup[["RNA"]]@data[recMac.de$gene, ] %>% as.matrix()
-
-## scale the rows
-mat <- counts
-mat<- t(scale(t(mat)))
-
-cluster_anno<- subgroup@meta.data$nptreated
-
-quantile(mat, c(0.1, 0.95))
-
-```
-```{r}
-Seurat::BlueAndRed()
-col_fun = circlize::colorRamp2(c(-1, 0, 3), c("#313695", "white", "#A50026"))
-
-```
-
-with 3 groups 
-```{r}
-# NP_colors <- c("NP+" = "#90BFF9", "NP-" = "#C8DEF9", "Untreated" = "#D4D4D4")
-# column_ha <- HeatmapAnnotation(cluster = anno_block(
-#   gp = gpar(fill = c() "#90BFF9", "#C8DEF9", "#D4D4D4")), # <- here controls the filled color
-#   labels = c("group1", "group2", "group3"),
-#   labels_gp = gpar(col = "white", fontsize = 10),
-# ))
-
-# heatmap with 3 groups 
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        # column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = c("#D4D4D4", "#90BFF9", "#C8DEF9")), 
-                                           labels = c("Untreated", "NP+", "NP-"))),
-        show_column_names = F,
-        column_title = NULL,
-        use_raster = F)
-
-
-# heatmap with 2 groups 
- # anno_block(gp = gpar(fill = c("#D4D4D4", "#90BFF9")), 
-                                           # labels = c("TB", "NP"))),
-
-Heatmap(mat, name = "Expression",  
-        column_split = factor(cluster_anno),
-        cluster_columns = F,
-        show_column_dend = FALSE,
-        cluster_column_slices = TRUE,
-        column_title_gp = gpar(fontsize = 8),
-        column_gap = unit(0.5, "mm"),
-        cluster_rows = TRUE,
-        show_row_dend = FALSE,
-        col = col_fun,
-        row_names_gp = gpar(fontsize = 8),
-        column_title_rot = 90,
-        top_annotation = HeatmapAnnotation(foo = anno_block(gp = gpar(fill = scales::hue_pal()(9)))),
-        show_column_names = FALSE,
-        use_raster = F,
-        raster_quality = 4)
-
-```
-
-
 ### ClusterProfiler
 re-run DGE but with only positive markers 
 ```{r}
@@ -1614,13 +807,6 @@ dotplot(KEGGclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cl
 Pathwayclusterplot <- compareCluster(geneCluster = genelist, fun = "enrichPathway", organism = 'mouse')
 dotplot(Pathwayclusterplot, font.size = 12, label_format = 60, title = "moDC Sub-cluster Pathway terms" )
 ```
-
-
-
-
-
-
-
 
 # Session Info
 ```{r}

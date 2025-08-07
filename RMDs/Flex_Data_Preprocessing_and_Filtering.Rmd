@@ -43,9 +43,9 @@ library(parallel)
 ```
 
 ```{r source files}
-source("~/Documents/Kate/NMMscRNAseq/remove_soup.R")
-source("~/Documents/Kate/NMMscRNAseq/find_doublets.R")
-source("~/Documents/Kate/NMMscRNAseq/run_ddqcR.R")
+source("~/remove_soup.R")
+source("~/find_doublets.R")
+source("~/run_ddqcR.R")
 ```
 
 
@@ -58,12 +58,6 @@ sample 4: NP 7 DPI
 sample 5: PBS 0 DPI (uninjured control)
 
 
-** delete this when done ** 
-```{r}
-# data_dir = "/Users/kategriffin/Documents/Shea Lab/NP Mechanisms in SCI/Flex_Seq/10340-SH/10x_summary_10340-SH/"
-
-```
-
 # SoupX
 run SoupX from function file "CellRanger_SoupX_Processing.R"
 params: sample, data_dir, sample_dir
@@ -75,9 +69,6 @@ sample_dir_list = c("10577-KG-1/", "10577-KG-2/", "10577-KG-3/", "10577-KG-4/", 
 ```
 
 
-** loop over all samples ** 4/18 KG
-cannot run twice because you end up writing over the original file and it says specified 'path' already exists
-need to add if statement to remove if it exists then re-save 
 ```{r run soupX}
 lung_CD45pos_NPpos <- remove_soup("lung_CD45pos_NPpos", data_dir, "10577-KG-1/")
 lung_CD45pos_NPneg <- remove_soup("lung_CD45pos_NPneg", data_dir, "10577-KG-2/")
@@ -85,16 +76,6 @@ lung_CD45neg <- remove_soup("lung_CD45neg", data_dir, "10577-KG-3/")
 lung_TB <- remove_soup("lung_TB", data_dir, "10577-KG-4/")
 PT_NP <- remove_soup("PT_NP", data_dir, "10577-KG-5/")
 PT_ctrl <- remove_soup("PT_ctrl", data_dir, "10577-KG-6/")
-
-  
-# rm() clean out data 
-# NP2dpi <- remove_soup("NP2dpi", data_dir, "10340-SH-2/")
-
-# in loop format 
-# for (x in 1:5) {
-#   sample_list[x] = remove_soup(sample_list[x], data_dir, sample_dir_list[x])
-# }
-
 
 ```
 
@@ -480,8 +461,6 @@ rm(pt_ctrl, pt_np, lung_tb, lung_stro, lung_imm, lung_np)
 ```
 
 
-
-
 ```{r}
 sct_lung_np@meta.data$sample <- "lung.cd45pos.NPpos" # rename sample name
 sct_lung_imm@meta.data$sample <- "lung.cd45pos.NPneg"
@@ -524,15 +503,13 @@ scTransform vignette: https://satijalab.org/seurat/articles/sctransform_vignette
 install glmGamPoi before using, significantly improves speed
 BiocManager::install("glmGamPoi")
 
-
-
 ```{r load merged data}
 data <- readRDS("./Data/combined_filtered_tnbc_object.rds")
 ```
 
 ```{r run sct on merged data and save}
 data <- SCTransform(data, vars.to.regress = "percent.mt", verbose=F)
-saveRDS(data, file = "~/Documents/Kate/NMMscRNAseq/Data/merged_sct_filtered_tnbc_object.rds")
+saveRDS(data, file = "./Data/merged_sct_filtered_tnbc_object.rds")
 ```
 
 
