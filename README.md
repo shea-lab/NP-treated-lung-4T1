@@ -13,8 +13,7 @@ In order of processing:
 + Lung_Label_Clusters.Rmd - label clusters in the lung, cell identification
 + Generate_Figures.Rmd - generate plots
 + Cellchat_Object_Prep.Rmd - convert seurat object to cellchat objects
-+ v2_CellChat_Comparison_Analysis.Rmd - compare NP treated and untreated groups with cellchat. v2 script uses updated cellchat objects without dropped unknowns (unknowns were ID'd) 4/7/25
-+ CellChat_Figures.Rmd - generate cellchat figures 
++ v2_CellChat_Comparison_Analysis.Rmd - compare NP treated and untreated groups with cellchat 
 + moDC_Th17_Mechanism.Rmd - generate moDC and Th17 DEGs and plots 
 + Myeloid_Analysis.Rmd - contains more granular markers for myeloid subtype identification
 + moDC.R - examine moDC DEGs, generate .csv  
