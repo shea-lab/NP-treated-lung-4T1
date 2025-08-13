@@ -57,11 +57,6 @@ convert_human_to_mouse <- function(gene_list) {
 }
 
 # setup files 
-# subgroup.list <- c("microglia.rds",  "monocyte.rds",  
-#                    "clean_integrated_neutrophil.rds",   "integrated_stromal.rds",    "clean_integrated_vascular.rds" )
-# cell.list <- c("Microglia", "Monocyte", "Neutrophil", "Stromal", "Vascular")
-# subgroup.files <- c("Microglia_deg.csv",  "monocyte_deg.csv",   "neutrophil_deg.csv", "Stromal_deg.csv" ,   "vascular_deg.csv")
-
 condition.list <- c("Untreated", "NP+", "NP-", "Stromal")
 
 results.path = "~/Results/"
